@@ -1,0 +1,10 @@
+.DS_Store
+.ipynb_checkpoints
+.idea
+__pycache__/
+pics/*
+data/rms_dump/.~*
+*/cache/*
+results/
+.vscode/*
+./research/features.csv
