@@ -8,3 +8,4 @@ data/rms_dump/.~*
 results/
 .vscode/*
 ./research/features.csv
+*/runs/*
