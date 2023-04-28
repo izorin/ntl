@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+import lightning.pytorch as pl
+
 
 
 class LSTMEncoder(nn.Module):
@@ -20,7 +22,6 @@ class LSTMEncoder(nn.Module):
         
         return hn
         
-
 
 class LSTMDecoder(nn.Module):
     def __init__(self, input_size, hidden_size, n_lstms=1, **lstm_kwargs):
@@ -54,3 +55,9 @@ class LSTMAE(nn.Module):
         return (hn.squeeze(1), x_hat.flip(1))
 
 
+class LitLSTMAE(pl.LightningModule):
+    def __init__(self,):
+        pass
+
+    
+    

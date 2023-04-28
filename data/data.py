@@ -2,6 +2,8 @@ import sys
 import os
 import numpy as np
 import pandas as pd
+from torch import utils
+from torch.utils.data import Dataset
 
 from sklearn.preprocessing import quantile_transform
 
@@ -140,3 +142,13 @@ class SGCCDataset(Dataset):
     def __len__(self):
         return self.length
 
+
+
+def train_test_split(normal_dataset, anomal_dataset):
+    # normal_dataset = SGCCDataset(path=DATA_PATH, label=0, scale='minmax')
+    # anomal_dataset = SGCCDataset(path=DATA_PATH, label=1, scale='minmax')
+
+    train_data, val_data, test_normal_data = utils.data.random_split(normal_dataset, [len(normal_dataset) - 2*len(anomal_dataset), len(anomal_dataset), len(anomal_dataset)])
+    test_data = utils.data.ConcatDataset([test_normal_data, anomal_dataset])
+    
+    return train_data, val_data, test_data

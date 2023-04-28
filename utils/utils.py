@@ -14,9 +14,11 @@ import sklearn as sk
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
+import yaml
+from types import SimpleNamespace
+
+
 WINDOW_SIZE = 365
-
-
 def best_window(df, window_size=365):
     columns_nans = df.isna().sum().values
     min_idx = 0
@@ -127,3 +129,13 @@ def reduce_embeddings(embeddings, method, labels=None, plot=True, title=''):
         plt.show()
         
     return coord
+
+
+def load_config(path):
+    with open(path, 'r') as f:
+        config = yaml.safe_load(f)
+        
+    config = SimpleNamespace(**config)
+    return config
+    
+    
