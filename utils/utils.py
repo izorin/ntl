@@ -9,6 +9,10 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 import matplotlib.pyplot as plt
+import seaborn as sns
+import sklearn as sk
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 WINDOW_SIZE = 365
 
@@ -100,3 +104,26 @@ def get_conf_matrix(true, pred):
     print("FN = {}".format(fn))
     print("TP = {}".format(tp))
     return (tn, fp, fn, tp)
+
+
+def reduce_embeddings(embeddings, method, labels=None, plot=True, title=''):
+    
+    if method.upper() == 'PCA':
+        method = PCA(2)
+        coord = method.fit_transform(embeddings)
+    
+    elif method.upper() == 'TSNE':
+        method = TSNE(2)
+        coord = method.fit_transform(embeddings)
+    else:
+        print(f'unknow dim reductin method: {method}')
+        ValueError
+        
+    if plot:
+        plt.figure()
+        sns.scatterplot(x=coord[:, 0], y=coord[:, 1], color='b', alpha=0.2)
+        plt.legend()
+        plt.title(title)
+        plt.show()
+        
+    return coord

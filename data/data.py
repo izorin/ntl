@@ -71,3 +71,72 @@ def get_processed_dataset(filepath):
     return df__
 
 
+# torch datasets 
+class SGCCDataset(Dataset):
+    def __init__(self, path, label=None, scale=None, year=None):
+        super(SGCCDataset).__init__()
+        self.path = path
+        self.label = label
+        self.scale = scale
+        # loading dataset
+        self.data = self._get_dataset()
+        self.data = self._filter_by_label(self.data, self.label) # extracting data of only selected class
+        self.labels = self.data['FLAG'].to_numpy() # class labels
+        self.data = self.data.drop('FLAG', axis=1)
+        self._fill_na_() # filling NaN in consumption
+        self.consumers = self.data.reset_index()['CONS_NO'].to_list() # names of consumers
+
+        if year:
+            #TODO: slice data to have only selected year
+            # transpose raw_data and pick year in index
+            pass
+        
+        self.length = self.data.shape[0]
+        self.data = self.data.to_numpy()
+        if self.scale:
+            self.data = self._scale_data()
+            
+    def _scale_data(self):
+        eps = 10 ** -8
+        if self.scale == 'minmax':
+            _min = self.data.min(axis=1)
+            _max = self.data.max(axis=1)
+            self.data = (self.data - _min[:, None]) / (_max[:, None] - _min[:, None] + eps)
+
+        elif self.scale == 'standard':
+            mean = self.data.mean(axis=1)
+            std = self.data.std(axis=1)
+            self.data = (self.data - mean[:, None]) / (std[:, None] + eps)
+            
+        else:
+            print('unknow scaler name')
+            ValueError
+
+        return self.data
+
+    def _filter_by_label(self, data, label):
+        if label in ('normal', 0):
+            data = data[data['FLAG'] == 0]
+        elif label in ('anomal', 1):
+            data = data[data['FLAG'] == 1]
+        else:
+            pass
+
+        return data
+
+    def _fill_na_(self):
+        # filling with zeros
+        self.data.fillna(0, inplace=True)
+
+    def _get_dataset(self):
+        return get_dataset(self.path)
+
+    def _get_item(self, idx):
+        return (self.labels[idx], self.data[idx, :, None].astype(np.float32), self.consumers[idx])
+
+    def __getitem__(self, idx):
+        return self._get_item(idx)
+
+    def __len__(self):
+        return self.length
+
