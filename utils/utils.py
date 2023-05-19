@@ -138,4 +138,10 @@ def load_config(path):
     config = SimpleNamespace(**config)
     return config
     
-    
+
+def plot_predictions(x, x_hat):
+    fig, axs = plt.subplots(1,2)
+    axs[0].plot(x, 'b', alpha=0.3, label='x')
+    axs[0].plot(x_hat, 'r', alpha=0.3, label='x_hat')
+    axs[1].plot(x - x_hat, label='x - x_hat')
+    return fig

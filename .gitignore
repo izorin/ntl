@@ -9,3 +9,4 @@ results/
 .vscode/*
 ./research/features.csv
 */runs/*
+*/lightning_logs/

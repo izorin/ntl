@@ -1,3 +1,9 @@
 
 ntl_wd: '/Users/ivan_zorin/Documents/AIRI/code/ntl/'
 data_path: '/Users/ivan_zorin/Documents/AIRI/data/sgcc/data.csv'
+log_path: ''
+
+n_epochs: 100
+batch_size: 16
+lr: 0.0001
+device: 'cpu'
