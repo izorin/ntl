@@ -100,6 +100,7 @@ class LitLSTMAE(pl.LightningModule):
         self.val_embs = []
         self.test_embs = []
     
+    
     def configure_optimizers(self):
         optimizer = self.optimizer(self.parameters(), lr=self.config.lr)
         return optimizer
@@ -109,23 +110,23 @@ class LitLSTMAE(pl.LightningModule):
         _, x, _ = batch
         _, x_hat = self.model(x)
         loss = self.loss_fn(x, x_hat)
-        # self.log('train_loss', loss)
+        self.log('train_loss', loss)
         return loss
         
         
     def _shared_model_eval(self, batch, batch_idx):
-        _, x, _ = batch
+        y, x, _ = batch
         z, x_hat = self.model(x)
         loss = self.loss_fn(x, x_hat)
         self.embs.append(z)
-        return z, loss
+        return y, z, loss
         
     def validation_step(self, batch, batch_idx):
-        z, loss = self._shared_model_eval(batch, batch_idx)
+        labels, z, loss = self._shared_model_eval(batch, batch_idx)
         self.log('val_loss', loss)
         
     def test_step(self, batch, batch_idx):
-        z, loss = self._shared_model_eval(batch, batch_idx)
+        labels, z, loss = self._shared_model_eval(batch, batch_idx)
         self.log('test_loss', loss)
         
         

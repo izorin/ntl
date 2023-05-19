@@ -118,17 +118,17 @@ def reduce_embeddings(embeddings, method, labels=None, plot=True, title=''):
         method = TSNE(2)
         coord = method.fit_transform(embeddings)
     else:
-        print(f'unknow dim reductin method: {method}')
+        print(f'unknown dim reductin method: {method}')
         ValueError
         
     if plot:
-        plt.figure()
+        fig = plt.figure()
         sns.scatterplot(x=coord[:, 0], y=coord[:, 1], color='b', alpha=0.2)
         plt.legend()
         plt.title(title)
         plt.show()
         
-    return coord
+    return coord, fig
 
 
 def load_config(path):
