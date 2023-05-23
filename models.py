@@ -1,8 +1,13 @@
+from typing import Any, Optional
+from lightning.pytorch.utilities.types import STEP_OUTPUT
+from sympy import plot
 import torch
 from torch import nn
 import lightning.pytorch as pl
 import torch.nn.functional as F
-
+from utils.utils import reduce_embed_dim,  plot_embeddings, plot_prediction
+import wandb
+import numpy as np
 
 
 
@@ -87,19 +92,63 @@ class LSTMAE(nn.Module):
         return (hn.squeeze(1), x_hat.flip(1))
 
 
+class LitDummyModel(pl.LightningModule):
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+        self.net = nn.Linear(dim, dim, bias=True)
+        self.embs = torch.randn([32, 64])
+        
+    def forward(self, x):
+        return self.net(x)
+        
+    def configure_optimizers(self):
+        return torch.optim.SGD(self.parameters(), lr=0.001)
+    
+    def _shared_step(self, batch, batch_idx):
+        y = self.net(batch)
+        loss = F.mse_loss(batch, y)
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        loss = self._shared_step(batch, batch_idx)
+        self.log('train_loss', loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        loss = self._shared_step(batch, batch_idx)
+        self.log('val_loss', loss)
+        return loss
+    
+    def on_validation_epoch_end(self):
+        embs = torch.randn([32, 64])
+        fig = plot_embeddings(embs, pca_dim=2, title='validation')
+        wandb.log({'val embs': wandb.Image(fig)})
+
+    def on_validation_batch_end(self, outputs: STEP_OUTPUT | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+
+        if batch_idx == 0:
+            x = np.random.randn(2, 1024)
+            fig = plot_prediction(x[0, :], x[1, :])
+            wandb.log({'val_x_hat': wandb.Image(fig)})
+        
+        
 class LitLSTMAE(pl.LightningModule):
-    def __init__(self, model, loss_fn, optimizer, config):
+    def __init__(self, model, loss_fn, optimizer, logger, config):
         super().__init__()
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
+        # self.logger = logger
     
         self.config = config
         
         self.embs = []
         self.val_embs = []
         self.test_embs = []
-    
+
+        self.save_hyperparameters(ignore=['model'])
+        
     
     def configure_optimizers(self):
         optimizer = self.optimizer(self.parameters(), lr=self.config.lr)
@@ -130,22 +179,42 @@ class LitLSTMAE(pl.LightningModule):
         self.log('test_loss', loss)
         
         
-    def _shared_on_epoch_end(self):
-        embs = torch.stack(self.embs)
-        self.embs.clear()
-        # TODO: reduce to 2D and visualize embeddings 
-        # add figure to logger       
-        
-        # plot some signal and its reconstruction      
+    def _shared_on_epoch_end(self, step_name):
+        embs = torch.concat(self.embs, dim=0)
+        embs = reduce_embed_dim(embs, pca_dim=self.config.pca_dim)
+        fig = plot_embeddings(embs, title=f'embeddings of {step_name}', log=True)
+    
+        # self.embs.clear()
+        return fig
     
     def on_validation_epoch_end(self):
-        self._shared_on_epoch_end()
+        fig = self._shared_on_epoch_end(step_name='val')
+        # self.logger.log('val_embeddings', fig)
+        # wandb.log({'val_embeddings': wandb.Image(fig)})
+        self.embs.clear()
         
     def on_test_epoch_end(self):
-        self._shared_on_epoch_end()
-    
-    
+        fig = self._shared_on_epoch_end(step_name='test')
+        # self.logger.log_image('test_embeddings', fig)
+        # wandb.log({'test_embeddings': wandb.Image(fig)})
+        self.embs.clear()
         
+        
+    def _shared_on_batch_end(self, batch, step=''):
+        _, x, _ = batch
+        x = x[0]
+        x_hat = self.model(x)
+        fig = plot_prediction(x, x_hat)
+        wandb.log({f'{step}_x_hat': wandb.Image(fig)})
+    
+    def on_validation_batch_end(self, outputs: STEP_OUTPUT | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+        
+        if batch_idx == 0:
+            self._shared_on_batch_end(batch, step='val')
+            
+        
+    
+
         
         
         

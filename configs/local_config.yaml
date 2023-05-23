@@ -1,9 +1,25 @@
+# paths
+ntl_wd: '/Users/ivan_zorin/Documents/DEV/code/ntl/'
+data_path: '/Users/ivan_zorin/Documents/DEV/data/sgcc/data.csv'
+log_path: '/Users/ivan_zorin/Documents/DEV/runs/'
 
-ntl_wd: '/Users/ivan_zorin/Documents/AIRI/code/ntl/'
-data_path: '/Users/ivan_zorin/Documents/AIRI/data/sgcc/data.csv'
-log_path: ''
+# wandb logger
+logger: 
+  name: 'first-run' # name of run
+  notes: ''
+  project: 'ntl' 
+  save_dir: './'
+  offline: False
 
+# training params
 n_epochs: 100
 batch_size: 16
 lr: 0.0001
 device: 'cpu'
+
+# model params
+input_size: 1
+hidden_size: [64]
+n_lstms: 1
+
+pca_dim: 2

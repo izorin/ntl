@@ -17,6 +17,7 @@ from sklearn.manifold import TSNE
 import yaml
 from types import SimpleNamespace
 
+import wandb
 
 WINDOW_SIZE = 365
 def best_window(df, window_size=365):
@@ -108,7 +109,7 @@ def get_conf_matrix(true, pred):
     return (tn, fp, fn, tp)
 
 
-def reduce_embeddings(embeddings, method, labels=None, plot=True, title=''):
+def reduce_embeddings(embeddings, method, labels=None, output='plot', title=''):
     
     if method.upper() == 'PCA':
         method = PCA(2)
@@ -121,14 +122,21 @@ def reduce_embeddings(embeddings, method, labels=None, plot=True, title=''):
         print(f'unknown dim reductin method: {method}')
         ValueError
         
-    if plot:
-        fig = plt.figure()
-        sns.scatterplot(x=coord[:, 0], y=coord[:, 1], color='b', alpha=0.2)
-        plt.legend()
-        plt.title(title)
-        plt.show()
+    
+    fig = plt.figure()
+    sns.scatterplot(x=coord[:, 0], y=coord[:, 1], color='b', alpha=0.2)
+    plt.legend()
+    plt.title(title)
+    if output == 'plot':
+        fig.show()
+        return coord
         
-    return coord, fig
+    if output == 'logger':
+        return fig
+    
+    else:
+        print(f'unknown output type ${output}')
+        raise ValueError
 
 
 def load_config(path):
@@ -139,7 +147,30 @@ def load_config(path):
     return config
     
 
-def plot_predictions(x, x_hat):
+
+def reduce_embed_dim(embs, pca_dim=2):
+    embs = PCA(pca_dim).fit_transform(embs)
+    if pca_dim > 2:
+        embs = TSNE(2).fit_transform(embs)
+        
+    return embs
+    
+
+def plot_embeddings(embs, title='', log=False):
+    # embs = PCA(pca_dim).fit_transform(embs)
+    # if pca_dim > 2:
+    #     embs = TSNE(2).fit_transform(embs)
+    
+    fig = plt.figure()
+    sns.scatterplot(x=embs[:, 0], y=embs[:, 1], color='b', alpha=0.2)
+    # plt.scatter(x=embs[:, 0], y=embs[:, 1], c='b', alpha=0.2) # TODO change seaborn to pyplot, seaborn crashed wandb logger 
+    
+    plt.title(title)
+    if log:
+        wandb.log({'embs': wandb.Image(fig)})
+    return fig
+
+def plot_prediction(x, x_hat):
     fig, axs = plt.subplots(1,2)
     axs[0].plot(x, 'b', alpha=0.3, label='x')
     axs[0].plot(x_hat, 'r', alpha=0.3, label='x_hat')

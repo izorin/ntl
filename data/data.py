@@ -2,7 +2,8 @@ import sys
 import os
 import numpy as np
 import pandas as pd
-from pydantic import DataclassTypeError
+
+import torch
 from torch import utils
 from torch.utils.data import Dataset, DataLoader
 
@@ -163,4 +164,18 @@ def define_loaders(config):
     test_loader = DataLoader()
     
     return train_loader, val_loader, test_loader
+    
+    
+    
+class DummyDataset(Dataset):
+    def __init__(self, dim, length=1000):
+        self.dim = dim
+        self.len = length
+    
+    def __len__(self):
+        return self.len
+    
+    def __getitem__(self, idx):
+        return torch.randn([self.dim])
+    
     
