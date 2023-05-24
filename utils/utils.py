@@ -10,6 +10,9 @@ from sklearn.metrics import (
 )
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
+import plotly.graph_objects as go
+
 import sklearn as sk
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -153,26 +156,40 @@ def reduce_embed_dim(embs, pca_dim=2):
     if pca_dim > 2:
         embs = TSNE(2).fit_transform(embs)
         
-    return embs
-    
+    return embs  
 
-def plot_embeddings(embs, title='', log=False):
-    # embs = PCA(pca_dim).fit_transform(embs)
-    # if pca_dim > 2:
-    #     embs = TSNE(2).fit_transform(embs)
+def plot_embeddings(embs, labels=None, title='', log=False):
+    fig = px.scatter(x=embs[:, 0], 
+                     y=embs[:, 1], 
+                     color=labels, 
+                    #  title=title
+)
     
-    fig = plt.figure()
-    sns.scatterplot(x=embs[:, 0], y=embs[:, 1], color='b', alpha=0.2)
-    # plt.scatter(x=embs[:, 0], y=embs[:, 1], c='b', alpha=0.2) # TODO change seaborn to pyplot, seaborn crashed wandb logger 
-    
-    plt.title(title)
-    if log:
-        wandb.log({'embs': wandb.Image(fig)})
     return fig
 
-def plot_prediction(x, x_hat):
-    fig, axs = plt.subplots(1,2)
-    axs[0].plot(x, 'b', alpha=0.3, label='x')
-    axs[0].plot(x_hat, 'r', alpha=0.3, label='x_hat')
-    axs[1].plot(x - x_hat, label='x - x_hat')
+
+def plot_prediction(x, x_hat, step_name=''):
+    fig = go.Figure()
+    
+    t = np.arange(len(x))
+    fig.add_trace(go.Scatter(x=t, y=x, mode='lines', name='x', line=dict(color='rgba(0, 0, 255, 0.5)')))
+    fig.add_trace(go.Scatter(x=t, y=x_hat, mode='lines', name='x_hat', line=dict(color='rgba(255, 0, 0, 0.7)', dash='dash')))
+    fig.update_layout(
+        # title=f'{step_name} GT and prediction', 
+        xaxis_title='i', 
+        yaxis_title='x')
+    
+    
     return fig
+
+
+def log_predicted_signals(x, x_hat, step_name=''):
+    # wandb logger
+    line_x = wandb.plot.line_series(
+        xs = range(x.shape[1]),
+        ys=[x, x_hat],
+        keys=['x', 'x_hat'],
+        title='GT and prediction',
+        xname=''
+    )
+    wandb.log({f'{step_name}/x_prediction': line_x})

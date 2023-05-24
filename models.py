@@ -1,13 +1,11 @@
-from typing import Any, Optional
-from lightning.pytorch.utilities.types import STEP_OUTPUT
-from sympy import plot
 import torch
 from torch import nn
 import lightning.pytorch as pl
 import torch.nn.functional as F
-from utils.utils import reduce_embed_dim,  plot_embeddings, plot_prediction
+from utils.utils import *
 import wandb
 import numpy as np
+import plotly.express as px
 
 
 
@@ -112,26 +110,55 @@ class LitDummyModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss = self._shared_step(batch, batch_idx)
-        self.log('train_loss', loss)
+        self.log('train/loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss = self._shared_step(batch, batch_idx)
-        self.log('val_loss', loss)
+        self.log('val/loss', loss)
         return loss
     
     def on_validation_epoch_end(self):
         embs = torch.randn([32, 64])
-        fig = plot_embeddings(embs, pca_dim=2, title='validation')
-        wandb.log({'val embs': wandb.Image(fig)})
-
-    def on_validation_batch_end(self, outputs: STEP_OUTPUT | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+        labels = np.random.choice(['b','r'], size=32)
+        embs = reduce_embed_dim(embs, pca_dim=2)
+        
+        # plt plot
+        # fig = plot_embeddings(embs, title=f'val_embeddings', log=True)
+        # wandb.log({'val embs': wandb.Image(fig)})
+        
+        # wandb plot
+        # table = wandb.Table(columns=['x', 'y'], data=embs)
+        # wandb.log({'val/embs_2D': wandb.plot.scatter(table, 'x', 'y')})
+        
+        # plotly plot 
+        fig = plot_embeddings(embs, labels, title='plots/val/embs')
+        wandb.log({'plots/val/embs': fig})
+        
+        
+    def on_validation_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
 
         if batch_idx == 0:
-            x = np.random.randn(2, 1024)
+            _len = 1024
+            x = np.random.randn(2, _len)
+            
             fig = plot_prediction(x[0, :], x[1, :])
-            wandb.log({'val_x_hat': wandb.Image(fig)})
-        
+            wandb.log({'plots/val/x_x_hat': fig})
+            
+            # wandb.log({'val/x_hat': wandb.Image(fig)})
+            # data = [[i, x, x_hat, x_x_hat] for i, x, x_hat, x_x_hat in zip(range(_len), x[0, :], x[1, :], x[0, :] - x[1, :])]
+            # table = wandb.Table(data=data, columns=['i', 'x', 'x_hat', 'x - x_hat'])
+            # line_x = wandb.plot.line_series(
+            #     xs = range(_len),
+            #     ys=[x[0, :], x[1, :]],
+            #     keys=['x', 'x_hat'],
+            #     title='GT and prediction',
+            #     xname=''
+            # )
+            # line_x = wandb.plot.line(table, x='i', y='x')
+            # line_x_hat = wandb.plot.line(table, x='i', y='x_hat')
+            # line_x_x_hat = wandb.plot.line(table, x='i', y='x_x_hat')
+            # wandb.log({'val/x_prediction': line_x})
         
 class LitLSTMAE(pl.LightningModule):
     def __init__(self, model, loss_fn, optimizer, logger, config):
@@ -144,78 +171,81 @@ class LitLSTMAE(pl.LightningModule):
         self.config = config
         
         self.embs = []
-        self.val_embs = []
-        self.test_embs = []
-
+        self.labels = []
+        self.losses = []
         self.save_hyperparameters(ignore=['model'])
         
-    
+    def _clear_mem(self):
+        self.embs.clear()
+        self.labels.clear()
+        self.losses.clear()
+        
     def configure_optimizers(self):
         optimizer = self.optimizer(self.parameters(), lr=self.config.lr)
         return optimizer
-    
     
     def training_step(self, batch, batch_idx):
         _, x, _ = batch
         _, x_hat = self.model(x)
         loss = self.loss_fn(x, x_hat)
-        self.log('train_loss', loss)
+        self.log('train/loss', loss)
         return loss
-        
-        
+         
     def _shared_model_eval(self, batch, batch_idx):
         y, x, _ = batch
         z, x_hat = self.model(x)
         loss = self.loss_fn(x, x_hat)
         self.embs.append(z)
+        self.losses.append(loss.item())
         return y, z, loss
         
     def validation_step(self, batch, batch_idx):
         labels, z, loss = self._shared_model_eval(batch, batch_idx)
-        self.log('val_loss', loss)
+        self.log('val/loss', loss)
         
     def test_step(self, batch, batch_idx):
         labels, z, loss = self._shared_model_eval(batch, batch_idx)
-        self.log('test_loss', loss)
+        self.log('test/loss', loss)
         
         
     def _shared_on_epoch_end(self, step_name):
         embs = torch.concat(self.embs, dim=0)
-        embs = reduce_embed_dim(embs, pca_dim=self.config.pca_dim)
-        fig = plot_embeddings(embs, title=f'embeddings of {step_name}', log=True)
-    
-        # self.embs.clear()
-        return fig
+        embs = reduce_embed_dim(embs, pca_dim=self.config.pca_dim) # 2D coordinates
+        # TODO process self.labels to be in ['norm', 'bad'] instead of [0, 1]
+        fig = plot_embeddings(embs, self.labels)
+        wandb.log({f'plots/{step_name}/embs': fig})
+        
+
+
+        # TODO supervised model validation, using reconstruction errors and labels. 
+        # TODO plot ROC-AUC
     
     def on_validation_epoch_end(self):
         fig = self._shared_on_epoch_end(step_name='val')
-        # self.logger.log('val_embeddings', fig)
-        # wandb.log({'val_embeddings': wandb.Image(fig)})
-        self.embs.clear()
+        self._clear_mem()
         
     def on_test_epoch_end(self):
         fig = self._shared_on_epoch_end(step_name='test')
-        # self.logger.log_image('test_embeddings', fig)
-        # wandb.log({'test_embeddings': wandb.Image(fig)})
-        self.embs.clear()
+        self._clear_mem()
         
         
-    def _shared_on_batch_end(self, batch, step=''):
+    def _shared_on_batch_end(self, batch, step_name=''):
         _, x, _ = batch
         x = x[0]
         x_hat = self.model(x)
         fig = plot_prediction(x, x_hat)
-        wandb.log({f'{step}_x_hat': wandb.Image(fig)})
-    
-    def on_validation_batch_end(self, outputs: STEP_OUTPUT | None, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> None:
+        wandb.log({f'plots/{step_name}/GT and prediction': fig})
         
+        # log_predicted_signals(x, x_hat, step_name)
+        
+    def on_validation_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
         if batch_idx == 0:
-            self._shared_on_batch_end(batch, step='val')
+            self._shared_on_batch_end(batch, step_name='val')
             
         
-    
-
-        
+    def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
+        if batch_idx == 0:
+            self._shared_on_batch_end(batch, step_name='test')
         
         
         

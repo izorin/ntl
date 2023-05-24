@@ -17,10 +17,7 @@ from data.data import SGCCDataset, sgcc_train_test_split, DummyDataset
 from utils.utils import load_config
 
 
-if __name__ == '__main__':
-    
-    config = load_config('./configs/local_config.yaml')
-    config
+def main_run(config, wandb_logger):
 
     train_data, val_data, test_data = sgcc_train_test_split(config)
     num_workers = 2
@@ -37,49 +34,78 @@ if __name__ == '__main__':
         optimizer=torch.optim.Adam,
         logger=None,
         config=config
-      
     )
+    
+
+    trainer = pl.Trainer(fast_dev_run=False,
+                    check_val_every_n_epoch=1,
+                    limit_train_batches=10,
+                    limit_val_batches=10,
+                    max_epochs=2,
+                    #  num_sanity_val_steps=1,
+                    accelerator=config.device,
+                    #  profiler='simple',
+                    logger=wandb_logger,
+                    log_every_n_steps=1,
+)
+
+    trainer.fit(
+        model=model,
+        train_dataloaders=train_loader,
+        val_dataloaders=val_loader
+        
+    )
+
+
+
+    
+def dummy_run(config, wandb_logger):
+    
     dim = 64
     train_dummy = DataLoader(DummyDataset(dim), batch_size=16)
     val_dummy = DataLoader(DummyDataset(dim), batch_size=16)
     
-    dummy_model = LitDummyModel(
-        dim=64, 
-    )
-
-    wandb_logger = WandbLogger(
-        name='first-run',
-        project='NTL',
-        config=config.__dict__
-        
-    )
-
+    dummy_model = LitDummyModel(dim=dim)
+    
     trainer = pl.Trainer(fast_dev_run=False,
-                        check_val_every_n_epoch=1,
-                        limit_train_batches=10,
-                        limit_val_batches=10,
-                        max_epochs=2,
-                        #  num_sanity_val_steps=1,
-                        accelerator=config.device,
-                        #  profiler='simple',
-                        logger=wandb_logger,
-                        log_every_n_steps=1,
-    )
-
-    # trainer.fit(
-    #     model=model,
-    #     train_dataloaders=train_loader,
-    #     val_dataloaders=val_loader
-        
-    # )
-
-
-    # dummy trainer
+                    check_val_every_n_epoch=1,
+                    limit_train_batches=10,
+                    limit_val_batches=10,
+                    max_epochs=2,
+                    #  num_sanity_val_steps=1,
+                    accelerator=config.device,
+                    #  profiler='simple',
+                    logger=wandb_logger,
+                    log_every_n_steps=1,
+                )
+    
     trainer.fit(
         model=dummy_model,
         train_dataloaders=train_dummy,
-        val_dataloaders=val_dummy
-        
+        val_dataloaders=val_dummy  
     )
+
+####################################################################################        
+if __name__ == '__main__':
+    
+    dummy = False
+    
+    if dummy:
+        config = load_config('./configs/dummy_config.yaml')
+        wandb_logger = WandbLogger(**config.logger)
+        # wandb_logger = WandbLogger(
+        #     name='dummy-run',
+        #     project='NTL',
+        #     config=config.__dict__,
+        # )
+        
+        dummy_run(config, wandb_logger)
+    
+    else: 
+        config = load_config('./configs/local_config.yaml')
+        wandb_logger = WandbLogger(**config.logger)
+        
+        main_run(config, wandb_logger)
+    
     
     wandb.finish()
