@@ -161,12 +161,14 @@ class LitDummyModel(pl.LightningModule):
             # wandb.log({'val/x_prediction': line_x})
         
 class LitLSTMAE(pl.LightningModule):
+    # FIXME batch = next(iter(train_loader)) exucetes for more than 1 min, but the whole loop takes several seconds.
+
     def __init__(self, model, loss_fn, optimizer, logger, config):
         super().__init__()
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
-        # self.logger = logger
+        self.wandb_logger = logger
     
         self.config = config
         
@@ -214,6 +216,8 @@ class LitLSTMAE(pl.LightningModule):
         # TODO process self.labels to be in ['norm', 'bad'] instead of [0, 1]
         fig = plot_embeddings(embs, self.labels)
         wandb.log({f'plots/{step_name}/embs': fig})
+        # self.log_dict({f'plots/{step_name}/embs': fig}) 
+        
         
 
 
@@ -231,10 +235,14 @@ class LitLSTMAE(pl.LightningModule):
         
     def _shared_on_batch_end(self, batch, step_name=''):
         _, x, _ = batch
-        x = x[0]
-        x_hat = self.model(x)
+        x = x[:1] # x[0] keeping shape
+        _, x_hat = self.model(x)
+        x = x.detach().cpu().numpy()
+        x_hat = x_hat.detach().cpu().numpy()
         fig = plot_prediction(x, x_hat)
         wandb.log({f'plots/{step_name}/GT and prediction': fig})
+        # self.log_dict({f'plots/{step_name}/GT and prediction': fig}) 
+        
         
         # log_predicted_signals(x, x_hat, step_name)
         

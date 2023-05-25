@@ -161,7 +161,7 @@ def reduce_embed_dim(embs, pca_dim=2):
 def plot_embeddings(embs, labels=None, title='', log=False):
     fig = px.scatter(x=embs[:, 0], 
                      y=embs[:, 1], 
-                     color=labels, 
+                    #  color=labels,  # FIXME ValueError: All arguments should have the same length. The length of argument `color` is 0, whereas the length of  previously-processed arguments ['x', 'y'] is 32
                     #  title=title
 )
     

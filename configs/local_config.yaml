@@ -9,7 +9,7 @@ logger:
   notes: ''
   project: 'ntl' 
   save_dir: '/Users/ivan_zorin/Documents/DEV/runs/'
-  offline: False
+  offline: True
 
 # training params
 n_epochs: 100
