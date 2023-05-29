@@ -9,7 +9,6 @@ import wandb
 from lightning.pytorch.loggers import WandbLogger
 
 
-
 sys.path.append('/Users/ivan_zorin/Documents/DEV/code/ntl/')
 
 from models import *
@@ -32,7 +31,6 @@ def main_run(config, wandb_logger):
         model=lstmae,
         loss_fn=F.l1_loss,
         optimizer=torch.optim.Adam,
-        logger=None,
         config=config
     )
     
@@ -52,10 +50,13 @@ def main_run(config, wandb_logger):
     trainer.fit(
         model=model,
         train_dataloaders=train_loader,
-        val_dataloaders=val_loader
+        val_dataloaders=val_loader,
         
     )
 
+    trainer.test(model, test_loader)
+    
+    model.clear_mem()
 
 
     
@@ -102,8 +103,10 @@ if __name__ == '__main__':
         dummy_run(config, wandb_logger)
     
     else: 
-        config = load_config('./configs/local_config.yaml')
+        config_path = './configs/local_config.yaml'
+        config = load_config(config_path)
         wandb_logger = WandbLogger(**config.logger)
+        wandb.save(config_path)
         
         main_run(config, wandb_logger)
     

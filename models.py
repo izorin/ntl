@@ -1,3 +1,4 @@
+from typing import DefaultDict
 import torch
 from torch import nn
 import lightning.pytorch as pl
@@ -128,8 +129,8 @@ class LitDummyModel(pl.LightningModule):
         # wandb.log({'val embs': wandb.Image(fig)})
         
         # wandb plot
-        # table = wandb.Table(columns=['x', 'y'], data=embs)
-        # wandb.log({'val/embs_2D': wandb.plot.scatter(table, 'x', 'y')})
+        # roc_auc_table = wandb.roc_auc_table(columns=['x', 'y'], data=embs)
+        # wandb.log({'val/embs_2D': wandb.plot.scatter(roc_auc_table, 'x', 'y')})
         
         # plotly plot 
         fig = plot_embeddings(embs, labels, title='plots/val/embs')
@@ -147,7 +148,7 @@ class LitDummyModel(pl.LightningModule):
             
             # wandb.log({'val/x_hat': wandb.Image(fig)})
             # data = [[i, x, x_hat, x_x_hat] for i, x, x_hat, x_x_hat in zip(range(_len), x[0, :], x[1, :], x[0, :] - x[1, :])]
-            # table = wandb.Table(data=data, columns=['i', 'x', 'x_hat', 'x - x_hat'])
+            # roc_auc_table = wandb.roc_auc_table(data=data, columns=['i', 'x', 'x_hat', 'x - x_hat'])
             # line_x = wandb.plot.line_series(
             #     xs = range(_len),
             #     ys=[x[0, :], x[1, :]],
@@ -155,109 +156,134 @@ class LitDummyModel(pl.LightningModule):
             #     title='GT and prediction',
             #     xname=''
             # )
-            # line_x = wandb.plot.line(table, x='i', y='x')
-            # line_x_hat = wandb.plot.line(table, x='i', y='x_hat')
-            # line_x_x_hat = wandb.plot.line(table, x='i', y='x_x_hat')
+            # line_x = wandb.plot.line(roc_auc_table, x='i', y='x')
+            # line_x_hat = wandb.plot.line(roc_auc_table, x='i', y='x_hat')
+            # line_x_x_hat = wandb.plot.line(roc_auc_table, x='i', y='x_x_hat')
             # wandb.log({'val/x_prediction': line_x})
         
 class LitLSTMAE(pl.LightningModule):
-    # FIXME batch = next(iter(train_loader)) exucetes for more than 1 min, but the whole loop takes several seconds.
-
-    def __init__(self, model, loss_fn, optimizer, logger, config):
+    # TODO mb change log name pattert to [train, test, val]/[hist, loss, embs, prediction]
+    def __init__(self, model, loss_fn, optimizer, config):
         super().__init__()
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
-        self.wandb_logger = logger
     
         self.config = config
         
-        self.embs = []
-        self.labels = []
-        self.losses = []
-        self.save_hyperparameters(ignore=['model'])
+        self.embs = DefaultDict(list)
+        self.labels = DefaultDict(list)
+        self.losses = DefaultDict(list)
+        # self.roc_auc_table = wandb.Table(columns=['epoch', 'FPR', 'TPR', 'AUC']) # epoch == self.current_epoch
         
-    def _clear_mem(self):
-        self.embs.clear()
-        self.labels.clear()
-        self.losses.clear()
+        self.save_hyperparameters(ignore=['model'])
+        wandb.watch(self.model, log='all')
+        
+        
+        
+    def _clear_mem(self, step_name):
+        self.embs[step_name] = []
+        self.labels[step_name] = []
+        self.losses[step_name] = []
+    
+    def clear_mem(self):
+        for key in self.embs.keys(): # key in ['train', 'val', 'test']
+            self._clear_mem(key)
+            
         
     def configure_optimizers(self):
         optimizer = self.optimizer(self.parameters(), lr=self.config.lr)
         return optimizer
     
-    def training_step(self, batch, batch_idx):
-        _, x, _ = batch
-        _, x_hat = self.model(x)
-        loss = self.loss_fn(x, x_hat)
-        self.log('train/loss', loss)
-        return loss
-         
-    def _shared_model_eval(self, batch, batch_idx):
+    
+    def _shared_model_step(self, batch, batch_idx, step_name):
         y, x, _ = batch
         z, x_hat = self.model(x)
-        loss = self.loss_fn(x, x_hat)
-        self.embs.append(z)
-        self.losses.append(loss.item())
-        return y, z, loss
+        loss = self.loss_fn(x, x_hat, reduction='none')
+        self.embs[step_name].append(z.detach().cpu())
+        self.losses[step_name].append(loss.detach().cpu())
+        self.labels[step_name].append(y.detach().cpu())
+        return loss.mean()
+    
+    def training_step(self, batch, batch_idx):
+        loss = self._shared_model_step(batch, batch_idx, step_name='train')
+        self.log('train/loss', loss) #, batch_size=self.train_dataloader.batch_size) # TODO specify batch_size for logger
+        return loss
         
     def validation_step(self, batch, batch_idx):
-        labels, z, loss = self._shared_model_eval(batch, batch_idx)
+        loss = self._shared_model_step(batch, batch_idx, step_name='val')
         self.log('val/loss', loss)
         
     def test_step(self, batch, batch_idx):
-        labels, z, loss = self._shared_model_eval(batch, batch_idx)
+        loss = self._shared_model_step(batch, batch_idx, step_name='test')
         self.log('test/loss', loss)
         
         
     def _shared_on_epoch_end(self, step_name):
-        embs = torch.concat(self.embs, dim=0)
-        embs = reduce_embed_dim(embs, pca_dim=self.config.pca_dim) # 2D coordinates
-        # TODO process self.labels to be in ['norm', 'bad'] instead of [0, 1]
-        fig = plot_embeddings(embs, self.labels)
-        wandb.log({f'plots/{step_name}/embs': fig})
-        # self.log_dict({f'plots/{step_name}/embs': fig}) 
+        self.embs[step_name] = torch.concat(self.embs[step_name], dim=0).numpy()
+        self.losses[step_name] = torch.concat(self.losses[step_name], dim=0).numpy().squeeze().sum(axis=1) # sum over seq length
+        self.labels[step_name] = torch.concat(self.labels[step_name], dim=0).numpy()
+        
+        # plot embeddings
+        self.embs[step_name] = reduce_embed_dim(self.embs[step_name], pca_dim=self.config.pca_dim) # 2D coordinates
+        fig = plot_embeddings(self.embs[step_name], self.labels[step_name])
+        wandb.log({f'{step_name}/embs': fig})
+        
+        # plot reconstruction errors hist
+        fig = rec_error_hist(self.losses[step_name], self.labels[step_name])
+        wandb.log({f'{step_name}/error_hist': fig})
         
         
-
-
-        # TODO supervised model validation, using reconstruction errors and labels. 
-        # TODO plot ROC-AUC
+    def on_train_epoch_end(self): 
+        # NOTE
+        # train_epoch_start() -> val_epoch_start() -> val_epoch_end() -> train_epoch_end()
+        # therefore self.embs() of train stage are reset in on_val_epoch_end() 
+        self._shared_on_epoch_end(step_name='train')
+        self._clear_mem(step_name='train')
     
     def on_validation_epoch_end(self):
-        fig = self._shared_on_epoch_end(step_name='val')
-        self._clear_mem()
+        self._shared_on_epoch_end(step_name='val')
+        self._clear_mem(step_name='val')
+       
         
     def on_test_epoch_end(self):
-        fig = self._shared_on_epoch_end(step_name='test')
-        self._clear_mem()
+        self._shared_on_epoch_end(step_name='test')
         
+        # supervised tests
+        fig, (FPR, TPR, auc_score) = compute_roc_auc(self.losses['test'], self.labels['test'])
+        wandb.log({f'test/roc-auc': fig})
+        wandb.log({'test/auc': auc_score})
+        # self.roc_auc_table.add_data(self.current_epoch, FPR, TPR, auc_score)
+
+        self._clear_mem(step_name='test')
+
         
     def _shared_on_batch_end(self, batch, step_name=''):
         _, x, _ = batch
-        x = x[:1] # x[0] keeping shape
+        idx = np.random.randint(low=0, high=x.shape[0])
+        x = x[idx:idx+1] # == x[idx] keeping shape
         _, x_hat = self.model(x)
-        x = x.detach().cpu().numpy()
-        x_hat = x_hat.detach().cpu().numpy()
+        x = x.detach().cpu().numpy().squeeze()
+        x_hat = x_hat.detach().cpu().numpy().squeeze()
         fig = plot_prediction(x, x_hat)
-        wandb.log({f'plots/{step_name}/GT and prediction': fig})
-        # self.log_dict({f'plots/{step_name}/GT and prediction': fig}) 
-        
-        
+        wandb.log({f'{step_name}/GT and prediction': fig})
         # log_predicted_signals(x, x_hat, step_name)
-        
+    
+    def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
+        if batch_idx == 0:
+            self._shared_on_batch_end(batch, step_name='train')
+    
     def on_validation_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
         if batch_idx == 0:
             self._shared_on_batch_end(batch, step_name='val')
             
-        
-    def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
+    def on_test_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
         if batch_idx == 0:
             self._shared_on_batch_end(batch, step_name='test')
         
-        
-        
-    
+          
+    # def on_test_end(self):
+        # wandb.log({'roc-auc-table': self.roc_auc_table})
     
 
     

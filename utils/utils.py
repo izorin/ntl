@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import sklearn as sk
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn.metrics import roc_curve, roc_auc_score
 
 import yaml
 from types import SimpleNamespace
@@ -159,11 +160,9 @@ def reduce_embed_dim(embs, pca_dim=2):
     return embs  
 
 def plot_embeddings(embs, labels=None, title='', log=False):
-    fig = px.scatter(x=embs[:, 0], 
-                     y=embs[:, 1], 
-                    #  color=labels,  # FIXME ValueError: All arguments should have the same length. The length of argument `color` is 0, whereas the length of  previously-processed arguments ['x', 'y'] is 32
-                    #  title=title
-)
+    names = {0: 'norm', 1: 'bad'}
+    labels = [names[label] for label in labels]
+    fig = px.scatter(x=embs[:, 0], y=embs[:, 1], color=labels)
     
     return fig
 
@@ -174,17 +173,14 @@ def plot_prediction(x, x_hat, step_name=''):
     t = np.arange(len(x))
     fig.add_trace(go.Scatter(x=t, y=x, mode='lines', name='x', line=dict(color='rgba(0, 0, 255, 0.5)')))
     fig.add_trace(go.Scatter(x=t, y=x_hat, mode='lines', name='x_hat', line=dict(color='rgba(255, 0, 0, 0.7)', dash='dash')))
-    fig.update_layout(
-        # title=f'{step_name} GT and prediction', 
-        xaxis_title='i', 
-        yaxis_title='x')
-    
-    
+    fig.update_layout(xaxis_title='i', yaxis_title='x') # title=f'{step_name} GT and prediction'
+
     return fig
 
 
+# wandb logger
 def log_predicted_signals(x, x_hat, step_name=''):
-    # wandb logger
+        
     line_x = wandb.plot.line_series(
         xs = range(x.shape[1]),
         ys=[x, x_hat],
@@ -193,3 +189,34 @@ def log_predicted_signals(x, x_hat, step_name=''):
         xname=''
     )
     wandb.log({f'{step_name}/x_prediction': line_x})
+    
+
+def compute_roc_auc(scores, labels):
+    # TODO log roc_curve raw data or scores and labels
+    
+    fpr, tpr, thresh = roc_curve(labels, scores)
+    auc = roc_auc_score(labels, scores)
+    diagonal = np.linspace(0, 1, len(fpr))
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name='ROC', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=diagonal, y=diagonal, mode='lines', line=dict(color='red', dash='dash')))
+    
+    fig.update_layout(xaxis_title='FPR', yaxis_title='TPR', showlegend=False)
+    fig.add_annotation(x=0.9, y=0.1, text=f'<b>ROC-AUC: {np.round(auc,2)}<b>', showarrow=False )
+    
+    return fig, (fpr, tpr, auc)
+
+def rec_error_hist(losses, labels):
+    # TODO add edges to the bars 
+    class_names = {0: 'norm', 1: 'bad'}
+    fig = go.Figure()
+    
+    classes = set(labels)
+    for class_ in classes:
+        fig.add_trace(go.Histogram(x=losses[labels == class_], name=class_names[class_]))
+
+    fig.update_layout(barmode='overlay', xaxis_title='reconstruction_error', yaxis_title='count')
+    fig.update_traces(opacity=0.75)
+    
+    return fig

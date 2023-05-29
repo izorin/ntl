@@ -1,33 +1,33 @@
 # paths
-ntl_wd: '/Users/ivan_zorin/Documents/DEV/code/ntl/'
-data_path: '/Users/ivan_zorin/Documents/DEV/data/sgcc/data.csv'
+ntl_wd: '/content/ntl/'
+data_path: '/content/drive/MyDrive/4. MODELS/NTL/data/data.csv'
 log_path: '/Users/ivan_zorin/Documents/DEV/runs/'
 
 # wandb logger
 logger: 
-  name: 'first-run' # name of run
+  name: 'colab-run' # name of run
   notes: ''
   project: 'ntl' 
-  save_dir: '/Users/ivan_zorin/Documents/DEV/runs/'
+  save_dir: '/content/runs/'
   offline: False
   # id: '' # TODO implement id genereator based on run date-time and run name
 
 # training params
 num_workers: 2
 n_epochs: 100
-batch_size: 8
-lr: 0.0001
-device: 'cpu'
+batch_size: 
+lr: 0.00001
+device: 'cuda'
 
 # model params
 model_name: 'LSTMAE_old'
 model_kwargs:
   input_size: 1
-  hidden_size: [64]
+  hidden_size: [1024]
   n_lstms: 1
 
-# loss_fn: 'l1_loss' # torch.nn.functional function
-# optimizer_name: 'Adam' # torch.optim class
+loss_fn: 'l1_loss' # torch.nn.functional function
+optimizer_name: 'Adam' # torch.optim class
 # optimizer_kwargs:
   # lr: 0.001
 
