@@ -28,8 +28,15 @@ def main(config, pathes):
     train_data, val_data, test_data = sgcc_train_test_split(config)
     num_workers = config.num_workers
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_data, batch_size=config.batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
+    
+    if config.supervised_validation:
+        val_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
+        
+    else:
+        val_loader = DataLoader(val_data, batch_size=config.batch_size, shuffle=False, num_workers=num_workers)
+        test_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
+    
+    
 
     # base model
     nn_model = getattr(models, config.model)
@@ -50,14 +57,15 @@ def main(config, pathes):
                          log_every_n_steps=1,
 )
     # fit loop
+    
     trainer.fit(
         model=model,
         train_dataloaders=train_loader,
         val_dataloaders=val_loader,
     )
-
-    # tests
-    trainer.test(model, test_loader)
+    # test() if validation was unsupervised
+    if not config.supervised_validation:
+        trainer.test(model, test_loader)
     
     # upload logs
     model.clear_mem()
