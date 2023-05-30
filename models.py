@@ -263,9 +263,9 @@ class LitLSTMAE(pl.LightningModule):
     
     def on_validation_epoch_end(self):
         if self.config.supervised_validation:
-            self._unsupervised_validation('val')
-        else:
             self._supervised_validataion('val')
+        else:
+            self._unsupervised_validation('val')
             
         self._clear_mem('val')
             

@@ -77,16 +77,18 @@ def get_processed_dataset(filepath):
 
 # torch datasets 
 class SGCCDataset(Dataset):
-    def __init__(self, path, label=None, scale=None, year=None):
+    def __init__(self, path, label=None, scale=None, nan_ratio=1.0, year=None):
         super(SGCCDataset).__init__()
         self.path = path
         self.label = label
         self.scale = scale
+        self.nan_ratio = nan_ratio
         # loading dataset
         self.data = self._get_dataset()
         self.data = self._filter_by_label(self.data, self.label) # extracting data of only selected class
         self.labels = self.data['FLAG'].to_numpy() # class labels
         self.data = self.data.drop('FLAG', axis=1)
+        self._filter_by_nan_ratio()
         self._fill_na_() # filling NaN in consumption
         self.consumers = self.data.reset_index()['CONS_NO'].to_list() # names of consumers
 
@@ -128,6 +130,12 @@ class SGCCDataset(Dataset):
 
         return data
 
+    def _filter_by_nan_ratio(self):
+        days = self.data.shape[1] # length of time series
+        consumers_nan_ratio = self.data.isna().sum(axis=1) / days # missing value ratio per consumer
+        consumers_nan_ratio = consumers_nan_ratio[consumers_nan_ratio < self.nan_ratio] 
+        self.data = self.data.loc[consumers_nan_ratio.index.to_list()]
+    
     def _fill_na_(self):
         # filling with zeros
         self.data.fillna(0, inplace=True)
