@@ -1,0 +1,4 @@
+# paths
+ntl_wd: '/content/ntl/'
+data_path: '/content/drive/MyDrive/4. MODELS/NTL/data/data.csv'
+save_dir: '/content/runs/'

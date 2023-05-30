@@ -1,9 +1,0 @@
-
-ntl_wd: ''
-data_path: '/content/drive/MyDrive/4. MODELS/NTL/data/data.csv'
-log_path: ''
-
-n_epochs: 100
-batch_size: 16
-lr: 0.0001
-device: 'cuda'

@@ -1,0 +1,4 @@
+# pathes
+ntl_wd: '/Users/ivan_zorin/Documents/DEV/code/ntl/'
+data_path: '/Users/ivan_zorin/Documents/DEV/data/sgcc/data.csv'
+save_dir: '/Users/ivan_zorin/Documents/DEV/runs/'

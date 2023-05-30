@@ -162,7 +162,6 @@ class LitDummyModel(pl.LightningModule):
             # wandb.log({'val/x_prediction': line_x})
         
 class LitLSTMAE(pl.LightningModule):
-    # TODO mb change log name pattert to [train, test, val]/[hist, loss, embs, prediction]
     def __init__(self, model, loss_fn, optimizer, config):
         super().__init__()
         self.model = model
@@ -192,7 +191,9 @@ class LitLSTMAE(pl.LightningModule):
             
         
     def configure_optimizers(self):
-        optimizer = self.optimizer(self.parameters(), lr=self.config.lr)
+        optimizer = self.optimizer(self.parameters(), **self.config.optimizer_kwargs)
+        # TODO add scheduler 
+        # scheduler = self.scheduler()
         return optimizer
     
     
@@ -241,20 +242,36 @@ class LitLSTMAE(pl.LightningModule):
         self._shared_on_epoch_end(step_name='train')
         self._clear_mem(step_name='train')
     
-    def on_validation_epoch_end(self):
-        self._shared_on_epoch_end(step_name='val')
-        self._clear_mem(step_name='val')
-       
-        
-    def on_test_epoch_end(self):
-        self._shared_on_epoch_end(step_name='test')
+    def _unsupervised_validation(self, step_name):
+        '''
+        validates with unlabeled data; only computes and plots embeddings and reconstruction errors
+        '''
+        self._shared_on_epoch_end(step_name)
+    
+    def _supervised_validation(self, step_name):
+        '''
+        does unsupervised validation and in addition utilize labels to compute roc-auc using reconstruction errors
+        '''
+        self._shared_on_epoch_end(step_name)
         
         # supervised tests
-        fig, (FPR, TPR, auc_score) = compute_roc_auc(self.losses['test'], self.labels['test'])
-        wandb.log({f'test/roc-auc': fig})
-        wandb.log({'test/auc': auc_score})
+        fig, (FPR, TPR, auc_score) = compute_roc_auc(self.losses[step_name], self.labels[step_name])
+        wandb.log({f'{step_name}/roc-auc': fig})
+        wandb.log({f'{step_name}/auc': auc_score})
         # self.roc_auc_table.add_data(self.current_epoch, FPR, TPR, auc_score)
-
+        
+    
+    def on_validation_epoch_end(self):
+        if self.config.supervised_validation:
+            self._unsupervised_validation('val')
+        else:
+            self._supervised_validataion('val')
+            
+        self._clear_mem('val')
+            
+            
+    def on_test_epoch_end(self):
+        self._supervised_validation('test')
         self._clear_mem(step_name='test')
 
         
@@ -267,7 +284,6 @@ class LitLSTMAE(pl.LightningModule):
         x_hat = x_hat.detach().cpu().numpy().squeeze()
         fig = plot_prediction(x, x_hat)
         wandb.log({f'{step_name}/GT and prediction': fig})
-        # log_predicted_signals(x, x_hat, step_name)
     
     def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
         if batch_idx == 0:
@@ -281,7 +297,7 @@ class LitLSTMAE(pl.LightningModule):
         if batch_idx == 0:
             self._shared_on_batch_end(batch, step_name='test')
         
-          
+
     # def on_test_end(self):
         # wandb.log({'roc-auc-table': self.roc_auc_table})
     

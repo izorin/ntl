@@ -25,18 +25,18 @@ def main_run(config, wandb_logger):
     test_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
 
 
-    lstmae = LSTMAE_old(input_size=config.input_size, hidden_size=config.hidden_size, n_lstms=config.n_lstms)
+    lstmae = LSTMAE_old(**config.model_kwargs)
 
     model = LitLSTMAE(
         model=lstmae,
-        loss_fn=F.l1_loss,
-        optimizer=torch.optim.Adam,
+        loss_fn=getattr(torch.nn.functional, config.loss),
+        optimizer=getattr(torch.optim, config.optimizer),
         config=config
     )
     
 
     trainer = pl.Trainer(fast_dev_run=False,
-                    check_val_every_n_epoch=1,
+                    check_val_every_n_epoch=config.val_every_n_steps,
                     limit_train_batches=10,
                     limit_val_batches=10,
                     max_epochs=2,
@@ -91,8 +91,10 @@ if __name__ == '__main__':
     
     dummy = False
     
+    pathes_file = './configs/local_pathes.yaml'
+    
     if dummy:
-        config = load_config('./configs/dummy_config.yaml')
+        config = load_config('./configs/dummy_config.yaml', pathes_file)
         wandb_logger = WandbLogger(**config.logger)
         # wandb_logger = WandbLogger(
         #     name='dummy-run',
@@ -103,8 +105,8 @@ if __name__ == '__main__':
         dummy_run(config, wandb_logger)
     
     else: 
-        config_path = './configs/local_config.yaml'
-        config = load_config(config_path)
+        config_path = './configs/config.yaml'
+        config = load_config(config_path, pathes_file)
         wandb_logger = WandbLogger(**config.logger)
         wandb.save(config_path)
         

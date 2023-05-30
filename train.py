@@ -18,10 +18,10 @@ from data.data import SGCCDataset, sgcc_train_test_split, DummyDataset
 from utils.utils import load_config
 
 
-def main(config):
+def main(config, pathes):
     # config and logger
     config_path = config
-    config = load_config(config_path)
+    config = load_config(config_path, pathes)
     wandb_logger = WandbLogger(**config.logger)
     wandb.save(config_path) # save config file
     # data
@@ -32,13 +32,13 @@ def main(config):
     test_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
 
     # base model
-    nn_model = getattr(models, config.model_name)
+    nn_model = getattr(models, config.model)
     nn_model = nn_model(**config.model_kwargs)
     # Lightning model
     model = LitLSTMAE(
         model=nn_model,
-        loss_fn=F.l1_loss,
-        optimizer=torch.optim.Adam,
+        loss_fn=getattr(torch.nn.functional, config.loss),
+        optimizer=getattr(torch.optim, config.optimizer),
         config=config
     )
     # Trainer

@@ -143,11 +143,20 @@ def reduce_embeddings(embeddings, method, labels=None, output='plot', title=''):
         raise ValueError
 
 
-def load_config(path):
-    with open(path, 'r') as f:
+def load_config(config_file, pathes_file):
+    with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
         
+    with open(pathes_file, 'r') as f:
+        pathes = yaml.safe_load(f)
+    
+    for key in pathes.keys():
+        config[key] = pathes[key]
+        
+    config['logger']['save_dir'] = config['save_dir']
+        
     config = SimpleNamespace(**config)
+    
     return config
     
 
