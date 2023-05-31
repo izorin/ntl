@@ -14,6 +14,7 @@ sys.path.append('/Users/ivan_zorin/Documents/DEV/code/ntl/')
 from models import *
 from data.data import SGCCDataset, sgcc_train_test_split, DummyDataset
 from utils.utils import load_config
+from train import main
 
 
 def main_run(config, wandb_logger):
@@ -107,10 +108,7 @@ if __name__ == '__main__':
     else: 
         config_path = './configs/config.yaml'
         config = load_config(config_path, pathes_file)
-        wandb_logger = WandbLogger(**config.logger)
-        wandb.save(config_path)
-        
-        main_run(config, wandb_logger)
+        main(config_path, pathes_file)
     
     
     wandb.finish()

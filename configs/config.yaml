@@ -1,16 +1,16 @@
 # wandb logger
 logger: 
-  name: 'colab-run-supervised' # name of run
+  name: 'debug-supervised' # name of run
   notes: 'validate with labeled data'
   project: 'ntl' 
-  offline: False
+  offline: True
   # id: '' # TODO implement id genereator based on run date-time and run name
 
 # training params
 num_workers: 2
 n_epochs: 20
-batch_size: 32
-device: 'cuda'
+batch_size: 8
+device: 'cpu' # TODO move into train.main() as torch.cuda.is_available()
 
 supervised_validation: True
 val_every_n_steps: 5
@@ -19,13 +19,13 @@ val_every_n_steps: 5
 model: 'LSTMAE_old'
 model_kwargs:
   input_size: 1
-  hidden_size: [1024]
+  hidden_size: [64]
   n_lstms: 1
 
 loss: 'l1_loss' # torch.nn.functional function
 optimizer: 'Adam' # torch.optim class
 optimizer_kwargs:
-  lr: 0.00001
+  lr: 0.0001
 
 # scheduler:
 

@@ -30,7 +30,7 @@ def main(config, pathes):
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=num_workers)
     
     if config.supervised_validation:
-        val_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
+        val_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=True,  num_workers=num_workers)
         
     else:
         val_loader = DataLoader(val_data, batch_size=config.batch_size, shuffle=False, num_workers=num_workers)
