@@ -1,25 +1,38 @@
 # wandb logger
 logger: 
-  name: 'debug-supervised' # name of run
-  notes: 'validate with labeled data'
+  name: 'scheduler-test' # name of run
+  notes: 'drop samples with too many NaNs'
   project: 'ntl' 
   offline: True
   # id: '' # TODO implement id genereator based on run date-time and run name
 
-# training params
-num_workers: 2
-n_epochs: 20
-batch_size: 8
-device: 'cpu' # TODO move into train.main() as torch.cuda.is_available()
+seed: 42
 
+# training params
+trainer_kwargs:
+  fast_dev_run: False
+  check_val_every_n_epoch: 1
+  log_every_n_steps: 1
+  max_epochs: 30
+  limit_train_batches: 
+  limit_val_batches: 
+  num_sanity_val_steps: 0 # 0 -- turned off; 1 -- turned on; -1 -- whole val_dataset validation
+
+
+num_workers: 2
+batch_size: 32
 supervised_validation: True
 val_every_n_steps: 5
+
+# data 
+scale: 'minmax' # minmax / standard 
+nan_ratio: 0.7
 
 # model params
 model: 'LSTMAE_old'
 model_kwargs:
   input_size: 1
-  hidden_size: [64]
+  hidden_size: [1024]
   n_lstms: 1
 
 loss: 'l1_loss' # torch.nn.functional function
@@ -27,6 +40,12 @@ optimizer: 'Adam' # torch.optim class
 optimizer_kwargs:
   lr: 0.0001
 
-# scheduler:
+scheduler: 'ReduceLROnPlateau' # troch.optim.lr_scheduler class
+scheduler_kwargs:
+  factor: 0.5
+  patience: 3
+  verbose: True
+
+
 
 pca_dim: 2

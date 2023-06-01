@@ -21,6 +21,8 @@ from sklearn.metrics import roc_curve, roc_auc_score
 import yaml
 from types import SimpleNamespace
 
+import torch
+
 import wandb
 
 WINDOW_SIZE = 365
@@ -154,6 +156,8 @@ def load_config(config_file, pathes_file):
         config[key] = pathes[key]
         
     config['logger']['save_dir'] = config['save_dir']
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    config['device'] = device
         
     config = SimpleNamespace(**config)
     

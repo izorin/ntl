@@ -2,12 +2,13 @@ import sys
 import os
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import quantile_transform
 
 import torch
 from torch import utils
 from torch.utils.data import Dataset, DataLoader
 
-from sklearn.preprocessing import quantile_transform
+
 
 
 def download_data(save_path):
@@ -77,12 +78,13 @@ def get_processed_dataset(filepath):
 
 # torch datasets 
 class SGCCDataset(Dataset):
-    def __init__(self, path, label=None, scale=None, nan_ratio=1.0, year=None):
+    def __init__(self, path, label=None, scale=None, nan_ratio=1.0, transforms=[], year=None):
         super(SGCCDataset).__init__()
         self.path = path
         self.label = label
         self.scale = scale
         self.nan_ratio = nan_ratio
+        self.transforms = transforms
         # loading dataset
         self.data = self._get_dataset()
         self.data = self._filter_by_label(self.data, self.label) # extracting data of only selected class
@@ -147,7 +149,12 @@ class SGCCDataset(Dataset):
         return (self.labels[idx], self.data[idx, :, None].astype(np.float32), self.consumers[idx])
 
     def __getitem__(self, idx):
-        return self._get_item(idx)
+        sample = self._get_item(idx)
+        
+        for transform in self.transforms:
+            sample = transform(sample)
+
+        return sample
 
     def __len__(self):
         return self.length
@@ -155,8 +162,8 @@ class SGCCDataset(Dataset):
 
 
 def sgcc_train_test_split(config):
-    normal_dataset = SGCCDataset(path=config.data_path, label=0, scale='minmax')
-    anomal_dataset = SGCCDataset(path=config.data_path, label=1, scale='minmax')
+    normal_dataset = SGCCDataset(path=config.data_path, label=0, scale=config.scale, nan_ratio=config.nan_ratio)
+    anomal_dataset = SGCCDataset(path=config.data_path, label=1, scale=config.scale)
 
     train_data, val_data, test_normal_data = utils.data.random_split(normal_dataset, [len(normal_dataset) - 2*len(anomal_dataset), len(anomal_dataset), len(anomal_dataset)])
     test_data = utils.data.ConcatDataset([test_normal_data, anomal_dataset])

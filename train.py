@@ -19,23 +19,28 @@ from utils.utils import load_config
 
 
 def main(config, pathes):
+    
     # config and logger
     config_path = config
     config = load_config(config_path, pathes)
     wandb_logger = WandbLogger(**config.logger)
     wandb.save(config_path) # save config file
+    
+    # random seed
+    if config.seed is not None:
+        pl.seed_everything(config.seed, workers=True)
+    
     # data
     train_data, val_data, test_data = sgcc_train_test_split(config)
     num_workers = config.num_workers
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, num_workers=num_workers)
     
     if config.supervised_validation:
-        val_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=True,  num_workers=num_workers)
+        val_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
         
     else:
         val_loader = DataLoader(val_data, batch_size=config.batch_size, shuffle=False, num_workers=num_workers)
         test_loader = DataLoader(test_data, batch_size=config.batch_size, shuffle=False,  num_workers=num_workers)
-    
     
 
     # base model
@@ -46,15 +51,16 @@ def main(config, pathes):
         model=nn_model,
         loss_fn=getattr(torch.nn.functional, config.loss),
         optimizer=getattr(torch.optim, config.optimizer),
+        scheduler=getattr(torch.optim.lr_scheduler, config.scheduler),
         config=config
     )
     # Trainer
-    trainer = pl.Trainer(fast_dev_run=False,
-                         check_val_every_n_epoch=1,
-                         max_epochs=config.n_epochs,
-                         accelerator=config.device,
+    trainer = pl.Trainer(accelerator=config.device,
                          logger=wandb_logger,
-                         log_every_n_steps=1,
+                         
+                         **config.trainer_kwargs
+
+                         
 )
     # fit loop
     

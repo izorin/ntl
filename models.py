@@ -162,11 +162,12 @@ class LitDummyModel(pl.LightningModule):
             # wandb.log({'val/x_prediction': line_x})
         
 class LitLSTMAE(pl.LightningModule):
-    def __init__(self, model, loss_fn, optimizer, config):
+    def __init__(self, model, loss_fn, optimizer, scheduler, config):
         super().__init__()
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
+        self.scheduler = scheduler
     
         self.config = config
         
@@ -192,9 +193,19 @@ class LitLSTMAE(pl.LightningModule):
         
     def configure_optimizers(self):
         optimizer = self.optimizer(self.parameters(), **self.config.optimizer_kwargs)
-        # TODO add scheduler 
-        # scheduler = self.scheduler()
-        return optimizer
+        scheduler = self.scheduler(optimizer, **self.config.scheduler_kwargs)
+
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler' : {
+                'scheduler': scheduler,
+                'monitor': 'train/loss',
+                'interval': 'epoch',
+                'frequency': 1,
+                'strict': False,
+                'name': 'LR'
+            }
+        }
     
     
     def _shared_model_step(self, batch, batch_idx, step_name):
@@ -208,16 +219,16 @@ class LitLSTMAE(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         loss = self._shared_model_step(batch, batch_idx, step_name='train')
-        self.log('train/loss', loss) #, batch_size=self.train_dataloader.batch_size) # TODO specify batch_size for logger
+        self.log('train/loss', loss, batch_size=self.config.batch_size)
         return loss
         
     def validation_step(self, batch, batch_idx):
         loss = self._shared_model_step(batch, batch_idx, step_name='val')
-        self.log('val/loss', loss)
+        self.log('val/loss', loss, batch_size=self.config.batch_size)
         
     def test_step(self, batch, batch_idx):
         loss = self._shared_model_step(batch, batch_idx, step_name='test')
-        self.log('test/loss', loss)
+        self.log('test/loss', loss, batch_size=self.config.batch_size)
         
         
     def _shared_on_epoch_end(self, step_name):
@@ -259,8 +270,7 @@ class LitLSTMAE(pl.LightningModule):
         wandb.log({f'{step_name}/roc-auc': fig})
         wandb.log({f'{step_name}/auc': auc_score})
         # self.roc_auc_table.add_data(self.current_epoch, FPR, TPR, auc_score)
-        
-    
+         
     def on_validation_epoch_end(self):
         if self.config.supervised_validation:
             self._supervised_validation('val')
@@ -268,7 +278,6 @@ class LitLSTMAE(pl.LightningModule):
             self._unsupervised_validation('val')
             
         self._clear_mem('val')
-            
             
     def on_test_epoch_end(self):
         self._supervised_validation('test')
