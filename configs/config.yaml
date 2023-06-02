@@ -28,6 +28,11 @@ val_every_n_steps: 5
 scale: 'minmax' # minmax / standard 
 nan_ratio: 0.7
 
+transforms: ['AddConstant']
+transforms_kwargs: [
+  {'eps': 0.0001}
+]
+
 # model params
 model: 'LSTMAE_old'
 model_kwargs:

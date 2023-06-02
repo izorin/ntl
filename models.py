@@ -1,6 +1,7 @@
 from typing import DefaultDict
 import torch
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 import lightning.pytorch as pl
 import torch.nn.functional as F
 from utils.utils import *
@@ -170,6 +171,7 @@ class LitLSTMAE(pl.LightningModule):
         self.scheduler = scheduler
     
         self.config = config
+        self.tb_logger = SummaryWriter(log_dir=self.config.save_dir, comment='debug')
         
         self.embs = DefaultDict(list)
         self.labels = DefaultDict(list)
@@ -220,15 +222,20 @@ class LitLSTMAE(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         loss = self._shared_model_step(batch, batch_idx, step_name='train')
         self.log('train/loss', loss, batch_size=self.config.batch_size)
+        self.tb_logger.add_scalar('train/loss', loss.item(), self.global_step)
+        
         return loss
         
     def validation_step(self, batch, batch_idx):
         loss = self._shared_model_step(batch, batch_idx, step_name='val')
         self.log('val/loss', loss, batch_size=self.config.batch_size)
+        self.tb_logger.add_scalar('val/loss', loss.item(), self.global_step)
+        
         
     def test_step(self, batch, batch_idx):
         loss = self._shared_model_step(batch, batch_idx, step_name='test')
         self.log('test/loss', loss, batch_size=self.config.batch_size)
+        self.tb_logger.add_scalar('test/loss', loss.item(), self.global_step)
         
         
     def _shared_on_epoch_end(self, step_name):
@@ -240,10 +247,12 @@ class LitLSTMAE(pl.LightningModule):
         self.embs[step_name] = reduce_embed_dim(self.embs[step_name], pca_dim=self.config.pca_dim) # 2D coordinates
         fig = plot_embeddings(self.embs[step_name], self.labels[step_name])
         wandb.log({f'{step_name}/embs': fig})
+        self.tb_logger.add_figure(f'{step_name}/embs', fig, self.global_step)
         
         # plot reconstruction errors hist
         fig = rec_error_hist(self.losses[step_name], self.labels[step_name])
         wandb.log({f'{step_name}/error_hist': fig})
+        self.tb_logger.add_figure(f'{step_name}/embs', fig, self.global_step)
         
         
     def on_train_epoch_end(self): 
@@ -269,6 +278,8 @@ class LitLSTMAE(pl.LightningModule):
         fig, (FPR, TPR, auc_score) = compute_roc_auc(self.losses[step_name], self.labels[step_name])
         wandb.log({f'{step_name}/roc-auc': fig})
         wandb.log({f'{step_name}/auc': auc_score})
+        self.tb_logger.add_figure(f'{step_name}/roc-auc', fig, self.global_step)
+        self.tb_logger.add_scalar(f'{step_name}/auc', auc_score, self.global_step)
         # self.roc_auc_table.add_data(self.current_epoch, FPR, TPR, auc_score)
          
     def on_validation_epoch_end(self):
@@ -293,6 +304,7 @@ class LitLSTMAE(pl.LightningModule):
         x_hat = x_hat.detach().cpu().numpy().squeeze()
         fig = plot_prediction(x, x_hat)
         wandb.log({f'{step_name}/GT and prediction': fig})
+        self.tb_logger.add_figure(f'{step_name}/GT and prediction', fig, self.global_step)
     
     def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
         if batch_idx == 0:

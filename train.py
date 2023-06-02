@@ -23,7 +23,7 @@ def main(config, pathes):
     # config and logger
     config_path = config
     config = load_config(config_path, pathes)
-    wandb_logger = WandbLogger(**config.logger)
+    wandb_logger = WandbLogger(**config.logger) # TODO move this inside LightningModule
     wandb.save(config_path) # save config file
     
     # random seed

@@ -93,6 +93,7 @@ if __name__ == '__main__':
     dummy = False
     
     pathes_file = './configs/local_pathes.yaml'
+
     
     if dummy:
         config = load_config('./configs/dummy_config.yaml', pathes_file)

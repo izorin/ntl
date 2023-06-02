@@ -162,6 +162,10 @@ class SGCCDataset(Dataset):
 
 
 def sgcc_train_test_split(config):
+    
+    
+    # TODO init transformation 
+    
     normal_dataset = SGCCDataset(path=config.data_path, label=0, scale=config.scale, nan_ratio=config.nan_ratio)
     anomal_dataset = SGCCDataset(path=config.data_path, label=1, scale=config.scale)
 
