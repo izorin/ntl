@@ -172,21 +172,32 @@ def reduce_embed_dim(embs, pca_dim=2):
         
     return embs  
 
-def plot_embeddings(embs, labels=None, title='', log=False):
+def plot_embeddings(embs, labels=None, title='', log=False, pyplot=False):
     names = {0: 'norm', 1: 'bad'}
     labels = [names[label] for label in labels]
     fig = px.scatter(x=embs[:, 0], y=embs[:, 1], color=labels)
     
+    if pyplot:
+        fig_plt = plt.figure()
+        sns.scatterplot(x=embs[:, 0], y=embs[:, 1], hue=labels)
+        return (fig, fig_plt)
+    
     return fig
 
 
-def plot_prediction(x, x_hat, step_name=''):
+def plot_prediction(x, x_hat, step_name='', pyplot=False):
     fig = go.Figure()
     
     t = np.arange(len(x))
     fig.add_trace(go.Scatter(x=t, y=x, mode='lines', name='x', line=dict(color='rgba(0, 0, 255, 0.5)')))
     fig.add_trace(go.Scatter(x=t, y=x_hat, mode='lines', name='x_hat', line=dict(color='rgba(255, 0, 0, 0.7)', dash='dash')))
     fig.update_layout(xaxis_title='i', yaxis_title='x') # title=f'{step_name} GT and prediction'
+
+    if pyplot:
+        fig_pyplot = plt.figure()
+        sns.lineplot(x=t, y=x, name='x', color='blue', )
+        sns.lineplot(x=t, y=x_hat, name='x_hat', color='red')
+        return (fig, fig_pyplot)
 
     return fig
 
@@ -204,7 +215,7 @@ def log_predicted_signals(x, x_hat, step_name=''):
     wandb.log({f'{step_name}/x_prediction': line_x})
     
 
-def compute_roc_auc(scores, labels):
+def compute_roc_auc(scores, labels, pyplot=False):
     # TODO log roc_curve raw data or scores and labels
     
     fpr, tpr, thresh = roc_curve(labels, scores)
@@ -218,9 +229,20 @@ def compute_roc_auc(scores, labels):
     fig.update_layout(xaxis_title='FPR', yaxis_title='TPR', showlegend=False)
     fig.add_annotation(x=0.9, y=0.1, text=f'<b>ROC-AUC: {np.round(auc,2)}<b>', showarrow=False )
     
+    if pyplot:
+        fig_pyplot = plt.figure()
+        sns.lineplot(x=fpr, y=tpr, name='ROC', color='blue')
+        sns.lineplot(x=diagonal, y=diagonal, color='red')
+        plt.xlabel('FPR')
+        plt.ylabel('TPR')
+
+        
+        return (fig, fig_pyplot), (fpr, tpr, auc)
+    
+    
     return fig, (fpr, tpr, auc)
 
-def rec_error_hist(losses, labels):
+def rec_error_hist(losses, labels, pyplot=False):
     # TODO add edges to the bars 
     class_names = {0: 'norm', 1: 'bad'}
     fig = go.Figure()
@@ -231,5 +253,14 @@ def rec_error_hist(losses, labels):
 
     fig.update_layout(barmode='overlay', xaxis_title='reconstruction_error', yaxis_title='count')
     fig.update_traces(opacity=0.75)
+    
+    if pyplot:
+        fig_pyplot = plt.figure()
+        for class_ in classes:
+            sns.histplot(x=losses[labels == class_], name=class_names[class_])
+            
+        plt.xlabel('reconstruction error')
+        
+        return fig, fig_pyplot
     
     return fig

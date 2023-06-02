@@ -1,9 +1,9 @@
 # wandb logger
 logger: 
-  name: 'scheduler-test' # name of run
-  notes: 'drop samples with too many NaNs'
+  name: 'tb-test' # name of run
+  notes: 'debug tensorboard logging'
   project: 'ntl' 
-  offline: True
+  offline: False
   # id: '' # TODO implement id genereator based on run date-time and run name
 
 seed: 42
@@ -14,8 +14,8 @@ trainer_kwargs:
   check_val_every_n_epoch: 1
   log_every_n_steps: 1
   max_epochs: 30
-  limit_train_batches: 
-  limit_val_batches: 
+  limit_train_batches: null # null for no limit
+  limit_val_batches: null
   num_sanity_val_steps: 0 # 0 -- turned off; 1 -- turned on; -1 -- whole val_dataset validation
 
 
@@ -28,10 +28,10 @@ val_every_n_steps: 5
 scale: 'minmax' # minmax / standard 
 nan_ratio: 0.7
 
-transforms: ['AddConstant']
-transforms_kwargs: [
-  {'eps': 0.0001}
-]
+# transforms: ['AddConstant']
+# transforms_kwargs: [
+#   {'eps': 0.0001}
+# ]
 
 # model params
 model: 'LSTMAE_old'
@@ -51,6 +51,5 @@ scheduler_kwargs:
   patience: 3
   verbose: True
 
-
-
-pca_dim: 2
+# visualization
+pca_dim: 2 # if pca_dim = N > 2 than tSNE is used to reduce from N to 2
