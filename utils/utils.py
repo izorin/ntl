@@ -236,7 +236,6 @@ def compute_roc_auc(scores, labels, pyplot=False):
         plt.xlabel('FPR')
         plt.ylabel('TPR')
 
-        
         return (fig, fig_pyplot), (fpr, tpr, auc)
     
     

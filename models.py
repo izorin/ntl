@@ -279,8 +279,8 @@ class LitLSTMAE(pl.LightningModule):
         wandb.log({f'{step_name}/roc-auc': fig})
         wandb.log({f'{step_name}/auc': auc_score})
 
+        self.tb_logger.add_scalar(f'{step_name}/auc', auc_score, self.global_step)
         # self.tb_logger.add_figure(f'{step_name}/roc-auc', fig, self.global_step) # FIXME
-        # self.tb_logger.add_scalar(f'{step_name}/auc', auc_score, self.global_step) # FIXME
         # self.roc_auc_table.add_data(self.current_epoch, FPR, TPR, auc_score)
          
     def on_validation_epoch_end(self):
