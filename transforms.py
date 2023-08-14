@@ -27,5 +27,5 @@ class AddConstant:
         self.eps = eps
     
     def __call__(self, x):
-        return (x[0], x[1] + eps, x[2])
+        return (x[0], x[1] + self.eps, x[2])
     

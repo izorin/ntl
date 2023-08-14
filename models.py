@@ -9,6 +9,10 @@ import wandb
 import numpy as np
 import plotly.express as px
 
+from sequitur.models import LSTM_AE
+from sequitur.models.lstm_ae import Encoder, Decoder
+
+
 
 
 class LSTMAE_old(nn.Module):
@@ -324,5 +328,57 @@ class LitLSTMAE(pl.LightningModule):
         # wandb.log({'roc-auc-table': self.roc_auc_table})
     
 
+
+
+class SeqEncoder(Encoder):
+    def __init__(self, input_dim, out_dim, h_dims, h_activ, out_activ):
+        
+        super().__init__(input_dim, out_dim, h_dims, h_activ, out_activ)
+        
+    def forward(self, x):
+        for index, layer in enumerate(self.layers):
+            x, (h_n, c_n) = layer(x)
+
+            if self.h_activ and index < self.num_layers - 1:
+                x = self.h_activ(x)
+            elif self.out_activ and index == self.num_layers - 1:
+                return self.out_activ(h_n).squeeze()
+
+        return h_n.squeeze()
+        
     
+class SeqDecoder(Decoder):
+    def __init__(self, input_dim, out_dim, h_dims, h_activ):
+        super().__init__(input_dim, out_dim, h_dims, h_activ)
+        
+    def forward(self, x, seq_len):
+        x = x.unsqueeze(1).repeat(1, seq_len, 1) # unsqueeze sequence length's dimension, and repeat embedding over it
+        for index, layer in enumerate(self.layers):
+            x, (h_n, c_n) = layer(x)
+
+            if self.h_activ and index < self.num_layers - 1:
+                x = self.h_activ(x)
+
+        return torch.matmul(x, self.dense_matrix)
+        
+    
+    
+class SequiturLSTMAE(nn.Module):
+    def __init__(self, input_dim, encoding_dim, h_dims=[], h_activ=nn.Sigmoid(), out_activ=nn.Tanh()):
+        super().__init__()
+
+        h_activ = getattr(nn, h_activ)()
+        out_activ = getattr(nn, out_activ)()
+        
+        self.encoder = SeqEncoder(input_dim, encoding_dim, h_dims, h_activ, out_activ)
+        
+        self.decoder = SeqDecoder(encoding_dim, input_dim, h_dims[::-1], h_activ)
+        
+    def forward(self, x):
+        seq_len = x.shape[1]
+        z = self.encoder(x)
+        x = self.decoder(z, seq_len)
+        
+        return z, x
+        
     

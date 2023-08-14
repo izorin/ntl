@@ -1,0 +1,71 @@
+seed: 42
+debug: True
+n_debug_batches: 10
+
+# DATA 
+scale: 'minmax' # minmax / standard 
+nan_ratio: 0.7
+batch_size: 8
+
+
+# MODEL
+model: 'LSTMAE_old'
+model_kwargs:
+  input_size: 1
+  hidden_size: [64]
+  n_lstms: 1
+
+
+# OPTIMIZER
+optimizer: 'Adam' # torch.optim class
+optimizer_kwargs:
+  lr: 0.0001
+
+
+# SCHEDULER
+scheduler: 'ReduceLROnPlateau' # troch.optim.lr_scheduler class
+scheduler_kwargs:
+  factor: 0.5
+  patience: 3
+  verbose: True
+
+
+# LOSS
+loss_fn: 'L1Loss' # torch.nn class
+loss_kwargs: null
+
+
+# TRAINING
+n_epochs: 2
+
+
+num_workers: 2
+# supervised_validation: True
+
+
+# VISUALIZATION
+# pca_dim: 2 # if pca_dim = N > 2 than tSNE is used to reduce from N to 2
+
+# LOGGING
+log_step: 5
+
+# wandb logger
+logger: 
+  name: 'tb-test' # name of run
+  notes: 'debug tensorboard logging'
+  project: 'ntl' 
+  offline: True
+  # id: '' # TODO implement id genereator based on run date-time and run name
+
+
+# # PL training params
+# trainer_kwargs:
+#   fast_dev_run: False
+#   check_val_every_n_epoch: 1
+#   log_every_n_steps: 1
+#   max_epochs: 2
+#   limit_train_batches: 10 # null for no limit
+#   limit_val_batches: null
+#   num_sanity_val_steps: 0 # 0 -- turned off; 1 -- turned on; -1 -- whole val_dataset validation
+
+

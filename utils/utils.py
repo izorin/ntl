@@ -231,8 +231,10 @@ def compute_roc_auc(scores, labels, pyplot=False):
     
     if pyplot:
         fig_pyplot = plt.figure()
-        sns.lineplot(x=fpr, y=tpr, name='ROC', color='blue')
-        sns.lineplot(x=diagonal, y=diagonal, color='red')
+        # sns.lineplot(x=fpr, y=tpr, c='blue')
+        # sns.lineplot(x=diagonal, y=diagonal, c='red')
+        plt.plot(fpr, tpr, c='blue')
+        plt.plot(diagonal, diagonal, c='red')
         plt.xlabel('FPR')
         plt.ylabel('TPR')
 
