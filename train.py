@@ -12,8 +12,8 @@ import fire
 
 sys.path.append('/Users/ivan_zorin/Documents/DEV/code/ntl/')
 
-import models
-from models import *
+import code.ntl.models.models as models
+from code.ntl.models.models import *
 from data.data import SGCCDataset, sgcc_train_test_split, DummyDataset
 from utils.utils import load_config
 
