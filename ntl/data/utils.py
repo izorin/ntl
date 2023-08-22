@@ -10,6 +10,12 @@ from scipy.stats import zscore
 from sklearn.model_selection import StratifiedKFold
 
 
+############################################
+# CONTENT OF THIS FILE MOVED INTO `data.py`
+############################################
+# TODO DELETE FILE
+
+
 def download_data(filepath):
     # Download data from GitHub repository
     os.system(f'wget -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.z01 -O {filepath}')

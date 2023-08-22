@@ -9,7 +9,22 @@ from torch import utils
 from torch.utils.data import Dataset, DataLoader
 
 
-
+class SGGCC:
+    # TODO move stand-alone functions into this class
+    
+    def __init__(self):
+        pass
+    
+    def download_data(self):
+        pass
+    
+    def get_dataset(self):
+        pass
+    
+    def process_dataset(self):
+        pass
+    
+    
 
 def download_data(save_path):
     # Download data from GitHub repository
