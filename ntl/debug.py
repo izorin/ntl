@@ -35,8 +35,8 @@ config = load_config(experiment_config, path_config)
 
 device = config.device
 
-normal_dataset = SGCCDataset(path=config.data_path, label=0, scale=config.scale, nan_ratio=config.nan_ratio)
-anomal_dataset = SGCCDataset(path=config.data_path, label=1, scale=config.scale)
+normal_dataset = SGCCDataset(path=config.data_path, label=0, scaling_method=config.scale, nan_ratio=config.nan_ratio)
+anomal_dataset = SGCCDataset(path=config.data_path, label=1, scaling_method=config.scale)
 
 train_data, val_data, test_normal_data = random_split(normal_dataset, [len(normal_dataset) - 2*len(anomal_dataset), len(anomal_dataset), len(anomal_dataset)])
 test_data = ConcatDataset([test_normal_data, anomal_dataset])

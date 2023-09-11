@@ -4,7 +4,7 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 import lightning.pytorch as pl
 import torch.nn.functional as F
-from utils.utils import *
+# from utils.utils import *
 import wandb
 import numpy as np
 import plotly.express as px
@@ -382,3 +382,41 @@ class SequiturLSTMAE(nn.Module):
         return z, x
         
     
+class AE2dCNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        
+        channels = [1, 4, 16, 32, 64]
+        layers = []
+        for i in range(len(channels) - 1):
+            layers += [
+                nn.Conv2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0),
+                nn.ReLU(),
+                # nn.MaxPool2d(kernel_size=2, padding=1)
+            ]
+            
+        self.encoder = nn.Sequential(*layers)
+        
+        channels.reverse()
+        layers = []
+        for i in range(len(channels) - 1):
+            layers += [
+                nn.ConvTranspose2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0),
+                nn.ReLU()
+            ]
+            
+        self.decoder = nn.Sequential(*layers)
+            
+    def encode(self, x):
+        return self.encoder(x)
+    
+    def decode(self, emb):
+        return self.decoder(emb)
+        
+    def forward(self, x):
+        emb = self.encoder(x)
+        x = self.decoder(emb)
+        emb = emb.reshape(emb.shape[0], -1)
+        
+        return emb, x
