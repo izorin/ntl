@@ -8,6 +8,9 @@ from sklearn.metrics import (
     cohen_kappa_score,
     confusion_matrix,
 )
+
+import random
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -265,3 +268,56 @@ def rec_error_hist(losses, labels, pyplot=False):
         return fig, fig_pyplot
     
     return fig
+
+
+def fix_seed(seed):
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    # When running on the CuDNN backend, two further options must be set
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # Set a fixed value for the hash seed
+    # os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed set as {seed}")
+
+
+def conv2d_shape(hin, pad, dilation, kernel, stride):
+    """
+    computes output shapes of Conv2d with given parameters 
+    
+    ```
+    conv2d = partial(conv2d_shape, **{'pad': 0 ,'dilation': 1, 'kernel': 3 , 'stride': 1})
+
+    channels = [1, 4, 16, 32, 64]
+    hin = [16, 16]
+    for channel in channels:
+        print(hin)
+        hin = [np.floor(conv2d(hin[0])), np.floor(conv2d(hin[1]))]
+    ```
+    """
+    
+    hout = (hin + 2 * pad - dilation * (kernel - 1) - 1) / stride + 1 
+    return hout
+
+def convtraspose2d_shape(hin, pad, dilation, kernel, stride, output_pad):
+    """
+    computes output shapes of ConvTraspose2d with given parameters 
+    
+    ```
+    convtranspose2d = partial(convtraspose2d_shape, **{'pad': 0, 'dilation': 1, 'kernel': 3, 'stride': 1, 'output_pad': 0})
+
+    channels = [1, 4, 16, 32, 64]
+    hin = [16, 16]
+
+    for channel in channels:
+        print(hin)
+        hin = [convtranspose2d(hin[0]), convtranspose2d(hin[1])]
+    print(hin)
+    ```
+    """
+    hout = (hin - 1) * stride - 2 * pad + dilation * (kernel - 1) + output_pad + 1
+    return hout
+
+    

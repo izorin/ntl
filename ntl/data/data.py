@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import List, Union
+
 import sys
 import os
 import numpy as np
@@ -9,7 +12,22 @@ from torch import utils
 from torch.utils.data import Dataset, DataLoader
 
 
-
+class SGGCC:
+    # TODO move stand-alone functions into this class
+    
+    def __init__(self):
+        pass
+    
+    def download_data(self):
+        pass
+    
+    def get_dataset(self):
+        pass
+    
+    def process_dataset(self):
+        pass
+    
+    
 
 def download_data(save_path):
     # Download data from GitHub repository
@@ -58,6 +76,22 @@ def get_dataset(filepath):
     df_raw["FLAG"] = flags
     return df_raw
 
+def get_sgcc_data(filepath, normal_anomal_split=False):
+    
+    dataset = get_dataset(filepath)
+    dataset = dataset.reset_index().melt(id_vars=['CONS_NO', 'FLAG'], var_name='date', value_name='cons')
+    
+    if normal_anomal_split:
+        norm = dataset[dataset.FLAG == 0].drop('FLAG', axis=1)
+        anomal = dataset[dataset.FLAG == 1].drop('FLAG', axis=1)
+        return norm, anomal
+        
+    else:
+        return dataset
+        
+    
+    
+
 
 def get_processed_dataset(filepath):
 
@@ -78,49 +112,85 @@ def get_processed_dataset(filepath):
 
 # torch datasets 
 class SGCCDataset(Dataset):
-    def __init__(self, path, label=None, scale=None, nan_ratio=1.0, transforms=[], year=None):
+    def __init__(self, path: str, label: str | int, scaling_method: str=None, imputation_method: str=None, nan_ratio: float=1.0, transforms: List[str]=[], year: int=None):
+        """
+            `path`: `str` with path to .csv file with data
+            
+            `label`: `str` 'normal'/'anomal' or `int` 0/1
+            
+            `scaling_method`: scaler name 'minmax'/'standard', default `None` for not doing any scaling
+            
+            `nan_ratio`: float in range [0, 1], removes data sample with more than `nan_ratio` ratio of NaN values to the total number of values
+            
+            `transforms`: list of transformations, default is [] for no transformations
+            
+            `year`: int of year to select only data within the given `year`
+        """
         super(SGCCDataset).__init__()
+        
         self.path = path
         self.label = label
-        self.scale = scale
+        self.scaling_method = scaling_method
+        self.imputation_method = imputation_method
         self.nan_ratio = nan_ratio
         self.transforms = transforms
+        self.year = year
+        
         # loading dataset
         self.data = self._get_dataset()
-        self.data = self._filter_by_label(self.data, self.label) # extracting data of only selected class
-        self.labels = self.data['FLAG'].to_numpy() # class labels
-        self.data = self.data.drop('FLAG', axis=1)
-        self._filter_by_nan_ratio()
-        self._fill_na_() # filling NaN in consumption
+        
+        # TRANSFORMS
+        # extracting data of only selected class
+        self.data = self._filter_by_label(self.data, self.label) 
+        self.labels = self.data['FLAG'].to_numpy() # class labels 
+        self.data = self.data.drop('FLAG', axis=1)  # raw data without labels
         self.consumers = self.data.reset_index()['CONS_NO'].to_list() # names of consumers
+        # select consumption of specified year
+        self.data = self._select_by_year()
+        # remove rows with too many NaNs
+        self.data = self._filter_by_nan_ratio()
+        # TODO temporaly moved outside of this class
+        # fill NaNs 
+        # self.data = self._fill_na_()
+        # # scale data
+        # self.data = self._scale_data()
 
-        if year:
-            #TODO: slice data to have only selected year
-            # transpose raw_data and pick year in index
-            pass
         
         self.length = self.data.shape[0]
-        self.data = self.data.to_numpy()
-        if self.scale:
-            self.data = self._scale_data()
+        self.data = self.data.to_numpy()        
+           
+        # TODO create callable classes for transformations  
             
+    def _select_by_year(self):
+        if self.year is not None:
+            cols = [col for col in self.data.columns if col.year == self.year]
+        else:
+            cols = self.data.columns
+            
+        return self.data[cols]        
+        
     def _scale_data(self):
+        
+        if self.scaling_method is None:
+            return self.data
+        
         eps = 10 ** -8
-        if self.scale == 'minmax':
+        if self.scaling_method == 'minmax':
             _min = self.data.min(axis=1)
             _max = self.data.max(axis=1)
             self.data = (self.data - _min[:, None]) / (_max[:, None] - _min[:, None] + eps)
 
-        elif self.scale == 'standard':
+        elif self.scaling_method == 'standard':
             mean = self.data.mean(axis=1)
             std = self.data.std(axis=1)
             self.data = (self.data - mean[:, None]) / (std[:, None] + eps)
             
         else:
-            print('unknow scaler name')
+            print('unknown scaler name')
             ValueError
 
         return self.data
+
 
     def _filter_by_label(self, data, label):
         if label in ('normal', 0):
@@ -132,29 +202,31 @@ class SGCCDataset(Dataset):
 
         return data
 
+
     def _filter_by_nan_ratio(self):
         days = self.data.shape[1] # length of time series
         consumers_nan_ratio = self.data.isna().sum(axis=1) / days # missing value ratio per consumer
         consumers_nan_ratio = consumers_nan_ratio[consumers_nan_ratio < self.nan_ratio] 
-        self.data = self.data.loc[consumers_nan_ratio.index.to_list()]
+        return self.data.loc[consumers_nan_ratio.index.to_list()]
+    
     
     def _fill_na_(self):
-        # filling with zeros
-        self.data.fillna(0, inplace=True)
-
+        # interpolate and fill remaining 0s at the beginning
+        return self.data.interpolate(method='linear', axis=1, inplace=False).fillna(0)
+        
+        
     def _get_dataset(self):
         return get_dataset(self.path)
 
     def _get_item(self, idx):
-        return (self.labels[idx], self.data[idx, :, None].astype(np.float32), self.consumers[idx])
+        readings = self.data[idx, :, None].astype(np.float32)
+        for tf in self.transforms:
+            readings = tf(readings)
+        
+        return (self.labels[idx], readings, self.consumers[idx])
 
     def __getitem__(self, idx):
-        sample = self._get_item(idx)
-        
-        for transform in self.transforms:
-            sample = transform(sample)
-
-        return sample
+        return self._get_item(idx)
 
     def __len__(self):
         return self.length
@@ -163,17 +235,23 @@ class SGCCDataset(Dataset):
 
 def sgcc_train_test_split(config):
     
-    
     # TODO init transformation 
     
-    normal_dataset = SGCCDataset(path=config.data_path, label=0, scale=config.scale, nan_ratio=config.nan_ratio)
-    anomal_dataset = SGCCDataset(path=config.data_path, label=1, scale=config.scale)
+    normal_dataset = SGCCDataset(path=config.data_path, label=0, scaling_method=config.scale, nan_ratio=config.nan_ratio)
+    anomal_dataset = SGCCDataset(path=config.data_path, label=1, scaling_method=config.scale)
 
     train_data, val_data, test_normal_data = utils.data.random_split(normal_dataset, [len(normal_dataset) - 2*len(anomal_dataset), len(anomal_dataset), len(anomal_dataset)])
     test_data = utils.data.ConcatDataset([test_normal_data, anomal_dataset])
     
     return train_data, val_data, test_data
 
+
+def data_train_test_split(normal_data: Dataset, anomal_data: Dataset, ratio=None) -> Union[Dataset, Dataset]:
+    N = len(anomal_data)
+    train, normal_test = utils.data.random_split(normal_data, [len(normal_data) - N, N])
+    test = utils.data.ConcatDataset([normal_test, anomal_data])
+    
+    return train, test
 
 def define_loaders(config):
     train_data, val_data, test_data = sgcc_train_test_split(config)
