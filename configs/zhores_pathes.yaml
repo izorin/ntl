@@ -1,0 +1,4 @@
+# pathes
+ntl_wd: '/trinity/home/ivan.zorin/dev/code/ntl'
+data_path: '/trinity/home/ivan.zorin/dev/data/sgcc/data.csv'
+save_dir: '/trinity/home/ivan.zorin/dev/logs/'

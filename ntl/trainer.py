@@ -35,7 +35,9 @@ class BaseTrainer:
             'scores': [],
             'labels': []
         }
-        
+    
+    def _print_model_device(self):
+        print(self.model.device)
 
     def _clear_mem(self):
         for key in self.buffer.keys():
@@ -52,7 +54,7 @@ class BaseTrainer:
         z, x_hat = self.model(x)
         loss = self.loss_fn(x, x_hat)
         
-        embeddings_stash.append(z.detach().cpu().numpy().squeeze()) 
+        embeddings_stash.append(z.detach().cpu().numpy())
         labels.append(y)
         
         return loss.squeeze(dim=1)
@@ -100,7 +102,7 @@ class BaseTrainer:
         self.model.eval()
         with torch.no_grad():
             losses, embeddings, labels = self.shared_step(epoch, step_name='val')
-            self.buffer['scores'] += losses.tolist() # save all losses and lables 
+            self.buffer['scores'] += losses.tolist() # save all losses and labels
             self.buffer['labels'] += labels.tolist() # to compute roc-auc later
         
         return losses.mean()

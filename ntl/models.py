@@ -2,7 +2,8 @@ from typing import DefaultDict
 import torch
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
-import lightning.pytorch as pl
+# import lightning.pytorch as pl
+import pytorch_lightning as pl
 import torch.nn.functional as F
 # from utils.utils import *
 import wandb
