@@ -69,7 +69,7 @@ class BaseTrainer:
         t = tqdm(loader)
         t.set_description(f'{step_name} @ epoch {epoch}')
         for i, batch in enumerate(t): # TODO add tqdm()
-            if self.config.debug and step_name == 'train' and i >= self.config.n_debug_batches:
+            if self.config.debug and step_name in ['train', 'val'] and i >= self.config.n_debug_batches:
                 break
             step = i + loader_len * epoch
             loss = self.model_step(batch, embeddings_stash, labels)
