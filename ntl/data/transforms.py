@@ -36,6 +36,13 @@ class Cutout:
 #         return x[start:start+length]
 
 
+class Diff:
+    def __init__(self, lag: int):
+        self.lag = lag
+        
+    def __call__(self, x: ndarray) -> ndarray:
+        return np.diff(x, n=self.lag)
+
 
 class FillNA:
     def __init__(self, method: str=None):
