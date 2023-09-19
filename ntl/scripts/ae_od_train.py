@@ -1,18 +1,8 @@
-import numpy as np 
-from numpy import ndarray
-import pandas as pd
-import matplotlib.pyplot as plt
-import sklearn as sk 
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler, robust_scale
-from sktime.transformations.series.impute import Imputer
-
-from functools import partial
+import numpy as np  
 from types import SimpleNamespace
-
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -30,7 +20,7 @@ LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/CNNAE/'
 import sys
 sys.path.append(PROJECT_PATH)
 from ntl.data import SGCCDataset, data_train_test_split
-from ntl.data import FillNA, Scale, Reshape, ToTensor, Cutout
+from ntl.data import FillNA, Scale, Reshape, ToTensor, Cutout, Diff
 from ntl.models import AE2dCNN
 from ntl.trainer import ArgsTrainer
 from ntl.utils import fix_seed
@@ -40,13 +30,16 @@ def main():
     
     fix_seed(42)
     
-    transforms = [FillNA('drift'), 
-                Cutout(256), 
-                Scale('robust'), 
-                Reshape((16, 16)),
-                lambda x: x[None],
-                ToTensor()
+    transforms = [
+        FillNA('drift'), 
+        Cutout(256), 
+        Scale('robust'), 
+        Diff(1),
+        Reshape((16, 16)),
+        lambda x: x[None],
+        ToTensor()
     ]
+    
     normal_data = SGCCDataset(DATA_PATH, label=0, nan_ratio=0.75, transforms=transforms, year=2016)
     anomal_data = SGCCDataset(DATA_PATH, label=1, nan_ratio=1.0, transforms=transforms, year=2016)
 
