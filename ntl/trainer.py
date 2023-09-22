@@ -68,7 +68,7 @@ class BaseTrainer:
         
         t = tqdm(loader)
         t.set_description(f'{step_name} @ epoch {epoch}')
-        for i, batch in enumerate(t): # TODO add tqdm()
+        for i, batch in enumerate(t): 
             if self.config.debug and step_name in ['train', 'val'] and i >= self.config.n_debug_batches:
                 break
             step = i + loader_len * epoch
@@ -90,8 +90,7 @@ class BaseTrainer:
         
         if epoch % self.config.log_step == 0:
             self.logger.add_embedding(tag=f'{step_name}/embs', mat=embeddings_stash, metadata=labels, global_step=epoch)
-        
-        return losses, embeddings_stash, labels
+            return losses, embeddings_stash, labels
         
     def train_step(self, epoch):
         self.model.train()
@@ -104,6 +103,10 @@ class BaseTrainer:
             losses, embeddings, labels = self.shared_step(epoch, step_name='val')
             self.buffer['scores'] += losses.tolist() # save all losses and labels
             self.buffer['labels'] += labels.tolist() # to compute roc-auc later
+            
+            # self.buffer['scores_normal'] += normal_losses
+            # self.buffer['scores_anomal'] += anomal_losses
+            
         
         return losses.mean()
     
@@ -127,9 +130,21 @@ class BaseTrainer:
             train_losses.append(train_loss)
             val_losses.append(val_loss)
             
-            self.logger.add_scalars('loss', {'train': train_loss, 'val': val_loss}, epoch)  
+            if self.split_val_losses:
+                val_loss_normal, val_loss_anomal = self.split_val_loss()
+                self.logger.add_scalars('loss', {'train': train_loss, 'val_normal': val_loss_normal, 'val_loss_anomal': val_loss_anomal}, epoch)  
+            else:
+                self.logger.add_scalars('loss', {'train': train_loss, 'val': val_loss}, epoch)  
             self.supervised_validation(self.buffer['scores'], self.buffer['labels'], epoch)
-            
+    
+    def split_val_loss(self):
+        # splits val_loss into two terms -- val_loss_normal and val_loss_anomal
+        losses, labels = self.buffer['scores'], self.buffer['labels']
+        val_loss_normal = losses[labels == 0].mean()
+        val_loss_anomal = losses[labels == 1].mean()
+        return val_loss_normal, val_loss_anomal
+
+                
         
     def save(self):
         # save experiment results: model checkpoint

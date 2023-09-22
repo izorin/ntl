@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 # ZHORES
 PROJECT_PATH = '/trinity/home/ivan.zorin/dev/code/ntl/'
 DATA_PATH = '/trinity/home/ivan.zorin/dev/data/sgcc/data.csv'
-LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/CNNAE/'
+LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/debug/'
 
 
 import sys
@@ -34,7 +34,7 @@ def main():
         FillNA('drift'), 
         Cutout(256), 
         Scale('robust'), 
-        Diff(1),
+        # Diff(1),
         Reshape((16, 16)),
         lambda x: x[None],
         ToTensor()
@@ -45,8 +45,8 @@ def main():
 
     train, test = data_train_test_split(normal_data, anomal_data)
 
-    train_loader = DataLoader(train, batch_size=256, drop_last=False, shuffle=True)
-    test_loader = DataLoader(test, batch_size=256, shuffle=False)
+    train_loader = DataLoader(train, batch_size=64, drop_last=False, shuffle=True)
+    test_loader = DataLoader(test, batch_size=64, shuffle=False)
     
     model = AE2dCNN()
     loss = nn.MSELoss(reduction='none')
@@ -55,10 +55,10 @@ def main():
     logger = SummaryWriter(log_dir=LOG_DIR) 
     
     config = SimpleNamespace(**{
-        'debug': False,
+        'debug': True,
         'n_debug_batches': np.nan,
         'log_step': 5,
-        'n_epochs': 100
+        'n_epochs': 2
     })
     
     trainer = ArgsTrainer(
