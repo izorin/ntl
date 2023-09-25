@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, random_split, ConcatDataset
 
 from ntl.data import SGCCDataset 
 from ntl import models
-from ntl.utils import compute_roc_auc, load_config
+from ntl.utils import compute_roc_auc, load_config, get_date
 
 
 
@@ -90,66 +90,112 @@ class BaseTrainer:
         
         if epoch % self.config.log_step == 0:
             self.logger.add_embedding(tag=f'{step_name}/embs', mat=embeddings_stash, metadata=labels, global_step=epoch)
-            return losses, embeddings_stash, labels
+            
+        return losses, embeddings_stash, labels
         
     def train_step(self, epoch):
         self.model.train()
         losses, _, _ = self.shared_step(epoch, step_name='train')
+        
+        # plot x and x_hat 
+        idx = np.random.randint(len(self.train_loader.dataset))
+        sample = self.train_loader.dataset[idx]
+        self.reconstruction_plot(sample, 'train', epoch, )
+        
         return losses.mean()
     
     def val_step(self, epoch):
         self.model.eval()
         with torch.no_grad():
             losses, embeddings, labels = self.shared_step(epoch, step_name='val')
-            self.buffer['scores'] += losses.tolist() # save all losses and labels
-            self.buffer['labels'] += labels.tolist() # to compute roc-auc later
-            
-            # self.buffer['scores_normal'] += normal_losses
-            # self.buffer['scores_anomal'] += anomal_losses
-            
+            self.buffer['scores'] += losses.tolist() # save all losses and labels 
+            self.buffer['labels'] += labels.tolist() # to compute roc-auc later 
         
+        
+        N = len(self.val_loader.dataset)    
+        idx_normal = np.random.randint(0, N // 2) # first half of val_dataset are normal samples (by construction)
+        idx_anomal = np.random.randint(N // 2, N) # second half -- anomal
+        sample_normal = self.val_loader.dataset[idx_normal]
+        sample_anomal = self.val_loader.dataset[idx_anomal]        
+        self.reconstruction_plot(sample_normal, 'val', epoch)
+        self.reconstruction_plot(sample_anomal, 'val', epoch)    
+    
         return losses.mean()
     
     def supervised_validation(self, scores, labels, epoch):
         (_, fig), (FPR, TPR, auc_score) = compute_roc_auc(scores, labels, pyplot=True)
+        # TODO GMM 
+        
         self.logger.add_scalar('val/auc-score', auc_score, epoch)
         self.logger.add_figure(tag='val/roc-auc', figure=fig, global_step=epoch)
         
         self._clear_mem() # empty buffer
         
+    def reconstruction_plot(self, sample, step, epoch):
+        idx = np.random.randint(len(self.train_loader.dataset))
+        label, x, _ = sample
+        label_name = 'normal' if label == 0 else 'anomal'
+        
+        _, x_hat = self.model(x.to(self.device))
+        fig = plt.figure()
+        plt.plot(x.flatten().numpy().squeeze(), 'b', label='GT')
+        plt.plot(x_hat.detach().flatten().cpu().numpy().squeeze(), 'r--', label='prediction')
+        
+        plt.title(f'reconstruction of {label_name} signal @ epoch {epoch}')
+        plt.legend()
+        
+        self.logger.add_figure(tag=f'{step}/{label_name}', figure=fig, global_step=epoch)
+        
     
     def train(self):
         # TODO add tqdm
         train_losses, val_losses = [], []
+        best_metric = np.nan
         for epoch in range(self.config.n_epochs):
-            train_loss = self.train_step(epoch)
-            # train_loss = -1
-            val_loss = self.val_step(epoch)
-            self.scheduler.step(val_loss)
+            train_loss = self.train_step(epoch) # train step
+            val_loss = self.val_step(epoch) # val step 
+            self.scheduler.step(val_loss) 
             
+            # logging losses
             train_losses.append(train_loss)
             val_losses.append(val_loss)
             
-            if self.split_val_losses:
+            # separate losses for normal and anomal
+            if self.config.split_val_losses:
                 val_loss_normal, val_loss_anomal = self.split_val_loss()
                 self.logger.add_scalars('loss', {'train': train_loss, 'val_normal': val_loss_normal, 'val_loss_anomal': val_loss_anomal}, epoch)  
+                val_loss = val_loss_normal
+                
+            # one loss for both 
             else:
                 self.logger.add_scalars('loss', {'train': train_loss, 'val': val_loss}, epoch)  
-            self.supervised_validation(self.buffer['scores'], self.buffer['labels'], epoch)
+            # supervised validation
+            if not self.config.debug:
+                self.supervised_validation(self.buffer['scores'], self.buffer['labels'], epoch)
+            
+            # saving with best val_loss (val_loss_normal)
+            if val_loss < best_metric:
+                print(f'saving at best model at epoch {epoch}')
+                self.save(name_suffix='best')
+                
+        self.save(name_suffix='end')
     
     def split_val_loss(self):
         # splits val_loss into two terms -- val_loss_normal and val_loss_anomal
         losses, labels = self.buffer['scores'], self.buffer['labels']
-        val_loss_normal = losses[labels == 0].mean()
+        losses = np.array(losses)
+        labels = np.array(labels)
+        val_loss_normal = losses[labels == 0].mean() 
         val_loss_anomal = losses[labels == 1].mean()
         return val_loss_normal, val_loss_anomal
 
                 
         
-    def save(self):
+    def save(self, name_suffix=''):
         # save experiment results: model checkpoint
-        raise NotImplemented
-    
+        # if not self.config.debug:
+        torch.save(self.model, os.path.join(self.config.LOG_DIR, f'model_ckpt_{name_suffix}.pt'))
+        print(f'model checkpoint saved at "{self.config.LOG_DIR}"')
     
 class ConfigTrainer(BaseTrainer):
     
@@ -206,7 +252,15 @@ class ArgsTrainer(BaseTrainer):
         self.optim = optim
         self.scheduler = scheduler
         self.config = config
-        self.logger = logger
+        
+
+        if self.config.LOG_DIR is None: self.config.LOG_DIR = './logs/' + get_date()
+        else: self.config.LOG_DIR += get_date()
+
+        if logger is None:
+            self.logger = SummaryWriter(log_dir=self.config.LOG_DIR)
+        else:     
+            self.logger = logger
 
     
     

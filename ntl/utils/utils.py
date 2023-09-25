@@ -27,6 +27,7 @@ from types import SimpleNamespace
 import torch
 
 import wandb
+from datetime import datetime
 
 WINDOW_SIZE = 365
 def best_window(df, window_size=365):
@@ -320,4 +321,7 @@ def convtraspose2d_shape(hin, pad, dilation, kernel, stride, output_pad):
     hout = (hin - 1) * stride - 2 * pad + dilation * (kernel - 1) + output_pad + 1
     return hout
 
+    
+def get_date():
+    return datetime.now().strftime('%y_%m_%d_%H_%M')
     

@@ -1,5 +1,6 @@
 import numpy as np  
 from types import SimpleNamespace
+import os
 
 import torch
 from torch import nn
@@ -14,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 # ZHORES
 PROJECT_PATH = '/trinity/home/ivan.zorin/dev/code/ntl/'
 DATA_PATH = '/trinity/home/ivan.zorin/dev/data/sgcc/data.csv'
-LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/debug/'
+LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/CNNAE/'
 
 
 import sys
@@ -23,7 +24,7 @@ from ntl.data import SGCCDataset, data_train_test_split
 from ntl.data import FillNA, Scale, Reshape, ToTensor, Cutout, Diff
 from ntl.models import AE2dCNN
 from ntl.trainer import ArgsTrainer
-from ntl.utils import fix_seed
+from ntl.utils import fix_seed, get_date
 
 
 def main():
@@ -33,7 +34,7 @@ def main():
     transforms = [
         FillNA('drift'), 
         Cutout(256), 
-        Scale('robust'), 
+        Scale('minmax'), 
         # Diff(1),
         Reshape((16, 16)),
         lambda x: x[None],
@@ -45,20 +46,25 @@ def main():
 
     train, test = data_train_test_split(normal_data, anomal_data)
 
-    train_loader = DataLoader(train, batch_size=64, drop_last=False, shuffle=True)
-    test_loader = DataLoader(test, batch_size=64, shuffle=False)
+    train_loader = DataLoader(train, batch_size=256, drop_last=False, shuffle=True)
+    test_loader = DataLoader(test, batch_size=256, shuffle=False)
     
     model = AE2dCNN()
     loss = nn.MSELoss(reduction='none')
     optim = torch.optim.Adam(model.parameters(), lr=0.001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=2)
-    logger = SummaryWriter(log_dir=LOG_DIR) 
+    
+    date = get_date()
+    print(f'experiment folder: {date}')
+    # logger = SummaryWriter(log_dir=os.path.join(LOG_DIR, date))
     
     config = SimpleNamespace(**{
-        'debug': True,
+        'debug': False,
         'n_debug_batches': np.nan,
         'log_step': 5,
-        'n_epochs': 2
+        'n_epochs': 50,
+        'split_val_losses': True,
+        'LOG_DIR': LOG_DIR
     })
     
     trainer = ArgsTrainer(
@@ -69,9 +75,9 @@ def main():
         optim=optim,
         scheduler=scheduler,
         config=config,
-        logger=logger
+        # logger=logger
     )
-    
+    print('start training')
     trainer.train()
     
     
