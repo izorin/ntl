@@ -66,8 +66,9 @@ class BaseTrainer:
         loader = self.train_loader if step_name == 'train' else self.val_loader
         loader_len = len(loader)
         
-        t = tqdm(loader)
-        t.set_description(f'{step_name} @ epoch {epoch}')
+        # t = tqdm(loader, position=0, leave=False,)
+        # t.set_description(f'{step_name} @ epoch {epoch}') # FIXME uncomment
+        t = loader
         for i, batch in enumerate(t): 
             if self.config.debug and step_name in ['train', 'val'] and i >= self.config.n_debug_batches:
                 break
@@ -136,7 +137,7 @@ class BaseTrainer:
         label, x, _ = sample
         label_name = 'normal' if label == 0 else 'anomal'
         
-        _, x_hat = self.model(x.to(self.device))
+        _, x_hat = self.model(x[None].to(self.device))
         fig = plt.figure()
         plt.plot(x.flatten().numpy().squeeze(), 'b', label='GT')
         plt.plot(x_hat.detach().flatten().cpu().numpy().squeeze(), 'r--', label='prediction')
@@ -151,7 +152,7 @@ class BaseTrainer:
         # TODO add tqdm
         train_losses, val_losses = [], []
         best_metric = np.nan
-        for epoch in range(self.config.n_epochs):
+        for epoch in tqdm(range(self.config.n_epochs)):
             train_loss = self.train_step(epoch) # train step
             val_loss = self.val_step(epoch) # val step 
             self.scheduler.step(val_loss) 

@@ -5,13 +5,15 @@ from torch.utils.tensorboard import SummaryWriter
 # import lightning.pytorch as pl
 import pytorch_lightning as pl
 import torch.nn.functional as F
-# from utils.utils import *
+
 import wandb
 import numpy as np
 import plotly.express as px
 
 from sequitur.models import LSTM_AE
 from sequitur.models.lstm_ae import Encoder, Decoder
+
+from ntl.utils import conv2d_shape, convtraspose2d_shape
 
 
 
@@ -382,17 +384,20 @@ class SequiturLSTMAE(nn.Module):
         
         return z, x
         
+        
     
 class AE2dCNN(nn.Module):
-    def __init__(self):
+    def __init__(self, bias=True):
         super().__init__()
-        
         
         channels = [1, 4, 16, 32, 64]
         layers = []
         for i in range(len(channels) - 1):
+
             layers += [
-                nn.Conv2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0),
+                nn.Conv2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0, bias=bias),
+                nn.BatchNorm2d(num_features=channels[i+1]),
+                nn.Dropout(0.15),
                 nn.ReLU(),
                 # nn.MaxPool2d(kernel_size=2, padding=1)
             ]
@@ -400,10 +405,14 @@ class AE2dCNN(nn.Module):
         self.encoder = nn.Sequential(*layers)
         
         channels.reverse()
+
         layers = []
         for i in range(len(channels) - 1):
+
             layers += [
-                nn.ConvTranspose2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0),
+                nn.ConvTranspose2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0, bias=bias),
+                nn.BatchNorm2d(num_features=channels[i+1]),
+                nn.Dropout(0.15),
                 nn.ReLU()
             ]
             
