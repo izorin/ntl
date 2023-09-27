@@ -409,7 +409,7 @@ class BaseAE(nn.Module):
 class AE2dCNN(BaseAE):
     def __init__(self, bias=True):
         super().__init__()
-        
+        self.bias = bias
         channels = [1, 4, 16, 32, 64]
         layers = []
         for i in range(len(channels) - 1):
@@ -450,3 +450,36 @@ class AE2dCNN(BaseAE):
         emb = emb.reshape(emb.shape[0], -1)
         
         return emb, x
+    
+    
+class VAE2dCNN(BaseAE):
+    def __init__(self, bias=False):
+        super().__init__()
+        self.bias = bias
+        channels = [1, 4, 16, 32, 64]
+        layers = []
+        for i in range(len(channels) - 1):
+            layers += [
+                nn.Conv2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0, bias=bias),
+                nn.BatchNorm2d(num_features=channels[i+1]),
+                nn.Dropout(0.15),
+                nn.ReLU(),
+
+            ]
+            
+        self.encoder = nn.Sequential(*layers)
+        
+        channels.reverse()
+
+        layers = []
+        for i in range(len(channels) - 1):
+
+            layers += [
+                nn.ConvTranspose2d(in_channels=channels[i], out_channels=channels[i+1], stride=1, kernel_size=3, padding=0, bias=bias),
+                nn.BatchNorm2d(num_features=channels[i+1]),
+                nn.Dropout(0.15),
+                nn.ReLU()
+            ]
+            
+        self.decoder = nn.Sequential(*layers)
+            
