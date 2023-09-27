@@ -386,7 +386,27 @@ class SequiturLSTMAE(nn.Module):
         
         
     
-class AE2dCNN(nn.Module):
+class BaseAE(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = None
+        self.decoder = None
+        
+    def encode(self, x):
+        return self.encoder(x)
+    
+    def decode(self, emb):
+        return self.decoder(emb)
+        
+    def forward(self, x):
+        emb = self.encoder(x)
+        x = self.decoder(emb)
+        emb = emb.reshape(emb.shape[0], -1)
+        
+        return emb, x
+        
+    
+class AE2dCNN(BaseAE):
     def __init__(self, bias=True):
         super().__init__()
         
