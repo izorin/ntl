@@ -526,6 +526,26 @@ class AE1dCNN(BaseAE):
         decoder = reverse_linear_layers + reverse_conv1d_strided_layers + reverse_conv1d_layers
         self.decoder = nn.Sequential(*decoder)
             
+    def encode(self, x):
+        if x.shape[1] != 1:
+            x.transpose_(1,2)
+        return self.encoder(x)
+    
+    def decode(self, emb):
+        return self.decoder(emb)
+        
+    def forward(self, x):
+        if x.shape[1] != 1:
+            x.transpose_(1,2)
+            
+        #####################
+        emb = self.encoder(x)
+        x = self.decoder(emb)
+        emb = emb.reshape(emb.shape[0], -1)
+        # probably can be replaces with the following line 
+        # emb, x = super().forward(x)
+        
+        return emb, x
     
     
 class VAE2dCNN(BaseAE):

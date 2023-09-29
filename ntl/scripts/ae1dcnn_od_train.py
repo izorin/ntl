@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 # ZHORES
 PROJECT_PATH = '/trinity/home/ivan.zorin/dev/code/ntl/'
 DATA_PATH = '/trinity/home/ivan.zorin/dev/data/sgcc/data.csv'
-LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/debug/ae1dcnn_1batch/'
+LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/ae1dcnn_1batch/'
 
 
 import sys
@@ -34,8 +34,7 @@ def main():
     transforms = [
         FillNA('drift'), 
         Scale('minmax'), 
-        ToTensor(),
-        lambda x: x.transpose(1,2)
+        ToTensor()
     ]
     
     normal_data = SGCCDataset(DATA_PATH, label=0, nan_ratio=0.75, transforms=transforms, year=2016)
@@ -76,10 +75,10 @@ def main():
     # logger = SummaryWriter(log_dir=os.path.join(LOG_DIR, date))
     
     config = SimpleNamespace(**{
-        'debug': True,
-        'n_debug_batches': 5,
+        'debug': False,
+        'n_debug_batches': np.nan,  # np.nan for all batches
         'log_step': 5,
-        'n_epochs': 2,
+        'n_epochs': 50,
         'split_val_losses': True,
         'LOG_DIR': LOG_DIR
     })

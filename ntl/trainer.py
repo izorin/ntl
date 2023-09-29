@@ -74,7 +74,8 @@ class BaseTrainer:
                 break
             step = i + loader_len * epoch
             loss = self.model_step(batch, embeddings_stash, labels)
-            loss = torch.mean(loss, dim=(1,2))
+            dims_to_reduce = tuple(range(1, len(loss.shape))) # reduce all but Batch dimension
+            loss = torch.mean(loss, dim=dims_to_reduce)
             losses.append(loss.detach().cpu().numpy())
             loss = torch.mean(loss)
             
