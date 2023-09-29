@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 # ZHORES
 PROJECT_PATH = '/trinity/home/ivan.zorin/dev/code/ntl/'
 DATA_PATH = '/trinity/home/ivan.zorin/dev/data/sgcc/data.csv'
-LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/ae1dcnn_1batch/'
+LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/ae1dcnn/'
 
 
 import sys
@@ -33,7 +33,7 @@ def main():
     
     transforms = [
         FillNA('drift'), 
-        Scale('minmax'), 
+        Scale('maxabs'), 
         ToTensor()
     ]
     
@@ -78,7 +78,7 @@ def main():
         'debug': False,
         'n_debug_batches': np.nan,  # np.nan for all batches
         'log_step': 5,
-        'n_epochs': 50,
+        'n_epochs': 100,
         'split_val_losses': True,
         'LOG_DIR': LOG_DIR
     })
