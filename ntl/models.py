@@ -452,6 +452,82 @@ class AE2dCNN(BaseAE):
         return emb, x
     
     
+class AE1dCNN(BaseAE):
+    def __init__(self):
+        super().__init__()
+        
+        conv1d_layers = []
+        conv1d_strided_layers = []
+        conv1d_dims = [1, 4, 8, 16, 32]
+        conv1d_strided_dims = [32, 64, 128, 256, 512]
+        kernels = [3, 5, 7, 5]
+
+        for i in range(len(conv1d_dims) - 1):
+            conv1d_layers += [
+                nn.Conv1d(in_channels=conv1d_dims[i], out_channels=conv1d_dims[i+1],kernel_size=7, stride=1, dilation=3, bias=False),
+                nn.Dropout(0.15),
+                nn.BatchNorm1d(conv1d_dims[i+1]),
+                nn.LeakyReLU()
+            ]
+            
+        for i in range(len(conv1d_strided_dims) - 1):
+            conv1d_strided_layers += [
+                nn.Conv1d(in_channels=conv1d_strided_dims[i], out_channels=conv1d_strided_dims[i+1], kernel_size=kernels[i], stride=2, dilation=1, bias=False),
+                nn.Dropout(0.15),
+                nn.BatchNorm1d(conv1d_strided_dims[i+1]),
+                nn.LeakyReLU()    
+            ]
+
+        linear_layers = [nn.Linear(in_features=11, out_features=1),
+                         nn.Dropout(0.15),
+                         nn.ReLU(),
+                         nn.Flatten(1,2),
+                         nn.Linear(512, 512),
+                         nn.Dropout(0.15),
+                         nn.ReLU()
+                         ]
+        
+        encoder = conv1d_layers + conv1d_strided_layers + linear_layers
+        self.encoder = nn.Sequential(*encoder)
+
+        reverse_linear_layers = [
+            nn.Linear(512, 512),
+            nn.Dropout(0.15),
+            nn.ReLU(),
+            nn.Unflatten(1, (512, 1)),
+            nn.Linear(1, 11),
+            nn.Dropout(0.15),
+            nn.ReLU()
+            ]
+
+        kernels.reverse()
+        conv1d_strided_dims.reverse()
+        conv1d_dims.reverse()
+        output_paddings = [0, 1, 0, 1]
+        reverse_conv1d_strided_layers = []
+        reverse_conv1d_layers = []
+        
+        for i in range(len(conv1d_strided_dims) - 1):
+            reverse_conv1d_strided_layers += [
+                nn.ConvTranspose1d(in_channels=conv1d_strided_dims[i], out_channels=conv1d_strided_dims[i+1], kernel_size=kernels[i], stride=2, output_padding=output_paddings[i], bias=False),
+                nn.Dropout(0.15),
+                nn.BatchNorm1d(conv1d_strided_dims[i+1]),
+                nn.LeakyReLU()
+            ]
+            
+        for i in range(len(conv1d_dims) - 1):
+            reverse_conv1d_layers += [
+                nn.ConvTranspose1d(in_channels=conv1d_dims[i], out_channels=conv1d_dims[i+1], kernel_size=7, dilation=3, bias=False),
+                nn.Dropout(0.15),
+                nn.BatchNorm1d(conv1d_dims[i+1]),
+                nn.LeakyReLU()
+            ]
+            
+        decoder = reverse_linear_layers + reverse_conv1d_strided_layers + reverse_conv1d_layers
+        self.decoder = nn.Sequential(*decoder)
+            
+    
+    
 class VAE2dCNN(BaseAE):
     def __init__(self, bias=False):
         super().__init__()
