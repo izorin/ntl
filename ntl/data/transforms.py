@@ -67,7 +67,8 @@ class Diff(BaseTransform):
         
     def __call__(self, x: ndarray) -> ndarray:
         axis = np.argmax(x.shape)
-        return np.diff(x, n=self.lag, axis=axis)
+        x = np.diff(x, n=self.lag, axis=axis, prepend=0) # prepend to keep the same shape as x
+        return x
 
 
 class FillNA(BaseTransform):

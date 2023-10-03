@@ -15,13 +15,13 @@ from torch.utils.tensorboard import SummaryWriter
 # ZHORES
 PROJECT_PATH = '/trinity/home/ivan.zorin/dev/code/ntl/'
 DATA_PATH = '/trinity/home/ivan.zorin/dev/data/sgcc/data.csv'
-LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/ae1dcnn/'
+LOG_DIR = '/trinity/home/ivan.zorin/dev/logs/ae1dcnn-diff-1batch/'
 
 
 import sys
 sys.path.append(PROJECT_PATH)
 from ntl.data import SGCCDataset, data_train_test_split
-from ntl.data import FillNA, Scale, ToTensor
+from ntl.data import FillNA, Scale, ToTensor, Diff
 from ntl.models import AE1dCNN
 from ntl.trainer import ArgsTrainer
 from ntl.utils import fix_seed, get_date
@@ -29,11 +29,12 @@ from ntl.utils import fix_seed, get_date
 
 def main():
     
-    fix_seed(42)
+    fix_seed(43)
     
     transforms = [
         FillNA('drift'), 
-        Scale('maxabs'), 
+        Diff(1),
+        Scale('maxabs'),
         ToTensor()
     ]
     
@@ -68,7 +69,7 @@ def main():
     model = AE1dCNN()
     loss = nn.MSELoss(reduction='none')
     optim = torch.optim.Adam(model.parameters(), lr=0.0001)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=2)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5, patience=2, verbose=True)
     
     # date = get_date()
     # print(f'experiment folder: {date}')

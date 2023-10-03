@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os 
 import sys
 from tqdm.auto import tqdm
+from collections import defaultdict
 
 import torch 
 from torch import nn
@@ -35,6 +36,8 @@ class BaseTrainer:
             'scores': [],
             'labels': []
         }
+        
+        self.metrics = defaultdict(list) # dict to save some metrics over epochs 
     
     def _print_model_device(self):
         print(self.model.device)
@@ -67,8 +70,7 @@ class BaseTrainer:
         loader_len = len(loader)
         
         t = tqdm(loader, leave=False,)
-        t.set_description(f'{step_name}') # FIXME uncomment
-        # t = loader
+        t.set_description(f'{step_name}') 
         for i, batch in enumerate(t): 
             if self.config.debug and step_name in ['train', 'val'] and i >= self.config.n_debug_batches:
                 break
@@ -117,7 +119,7 @@ class BaseTrainer:
         N = len(self.val_loader.dataset)    
         idx_normal = np.random.randint(0, N // 2) # first half of val_dataset are normal samples (by construction)
         idx_anomal = np.random.randint(N // 2, N) # second half -- anomal
-        sample_normal = self.val_loader.dataset[idx_normal]
+        sample_normal = self.val_loader.dataset[idx_normal] # TODO check if transforms are applied with such call 
         sample_anomal = self.val_loader.dataset[idx_anomal]        
         self.reconstruction_plot(sample_normal, 'val', epoch)
         self.reconstruction_plot(sample_anomal, 'val', epoch)    
@@ -125,7 +127,9 @@ class BaseTrainer:
         return losses.mean()
     
     def supervised_validation(self, scores, labels, epoch):
+        # ROC-AUC
         (_, fig), (FPR, TPR, auc_score) = compute_roc_auc(scores, labels, pyplot=True)
+        self.metrics['roc-auc'].append(auc_score)
         # TODO GMM 
         
         self.logger.add_scalar('val/auc-score', auc_score, epoch)
@@ -147,12 +151,11 @@ class BaseTrainer:
         plt.legend()
         
         self.logger.add_figure(tag=f'{step}/{label_name}', figure=fig, global_step=epoch)
-        
+    
     
     def train(self):
-        # TODO add tqd
         train_losses, val_losses = [], []
-        best_metric = np.nan
+        best_metric = np.inf # TODO initial values should be initialized depending on metric to monitor
         t = tqdm(range(self.config.n_epochs))
         for epoch in t:
             t.set_description(f'epoch {epoch}')
@@ -168,9 +171,9 @@ class BaseTrainer:
             if self.config.split_val_losses:
                 val_loss_normal, val_loss_anomal = self.split_val_loss()
                 self.logger.add_scalars('loss', {'train': train_loss, 'val_normal': val_loss_normal, 'val_loss_anomal': val_loss_anomal}, epoch)  
-                val_loss = val_loss_normal
+                val_loss = val_loss_normal # for further use
                 
-            # one loss for both 
+            # joint loss for both 
             else:
                 self.logger.add_scalars('loss', {'train': train_loss, 'val': val_loss}, epoch)  
             # supervised validation
@@ -179,7 +182,10 @@ class BaseTrainer:
             
             # saving with best val_loss (val_loss_normal)
             if val_loss < best_metric:
-                print(f'saving at best model at epoch {epoch}')
+                # print(f'\nsaving best model at epoch {epoch}\n')
+                best_metric = val_loss
+                tqdm.write(f'\nsaving best model at epoch {epoch}\n')
+                
                 self.save(name_suffix='best')
                 
         self.save(name_suffix='end')
@@ -199,7 +205,7 @@ class BaseTrainer:
         # save experiment results: model checkpoint
         # if not self.config.debug:
         torch.save(self.model, os.path.join(self.config.LOG_DIR, f'model_ckpt_{name_suffix}.pt'))
-        print(f'model checkpoint saved at "{self.config.LOG_DIR}"')
+        # print(f'model checkpoint saved at "{self.config.LOG_DIR}"')
     
 class ConfigTrainer(BaseTrainer):
     
@@ -263,6 +269,7 @@ class ArgsTrainer(BaseTrainer):
 
         if logger is None:
             self.logger = SummaryWriter(log_dir=self.config.LOG_DIR)
+            print(f'experiment folder: {self.config.LOG_DIR}')
         else:     
             self.logger = logger
 
