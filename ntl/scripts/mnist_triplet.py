@@ -9,7 +9,7 @@ global LOG_PATH
 # ZHORES
 DATA_PATH = '/trinity/home/ivan.zorin/dev/data/'
 PROJECT_PATH = '/trinity/home/ivan.zorin/dev/code/ntl/'
-LOG_PATH = '/beegfs/home/ivan.zorin/dev/logs/mnist/no_triplet'
+LOG_PATH = '/beegfs/home/ivan.zorin/dev/logs/mnist/triplet_weight_schedule'
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -167,7 +167,7 @@ def train(model, loader, exposed_loader, optim, rec_loss_fn, triplet_loss_fn, tr
         # total loss
         rec_loss = rec_loss.mean()
         contrastive_loss = contrastive_loss.mean()
-        loss = rec_loss + triplet_loss_weight * contrastive_loss
+        loss = (1 - triplet_loss_weight[epoch]) * rec_loss + triplet_loss_weight[epoch] * contrastive_loss
         loss.backward()
         optim.step()
         
@@ -242,9 +242,9 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     batch_size = 64
     lr = 0.001
-    triplet_loss_weight = 0.5
     is_contrastive = True
     n_epochs = 50
+    triplet_loss_weight = [0.2] * 20 + [0.5] * 10 + [0.7] * 10 + [0.85] * 10
     
     
     mnist_data = MNIST(DATA_PATH, train=True, download=True, transform=ToTensor())
