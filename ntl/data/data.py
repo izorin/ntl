@@ -163,6 +163,10 @@ class SGCCDataset(Dataset):
         # self.data = self._fill_na_()
         # # scale data
         # self.data = self._scale_data()
+        # TODO apply transformations here to self.data
+        # for transform in self.traformation:
+            # self.data = transform(self.data)
+            
 
         self.labels = self.data['FLAG'].to_numpy() # class labels 
         self.data = self.data.drop('FLAG', axis=1)  # raw data without labels
@@ -170,7 +174,6 @@ class SGCCDataset(Dataset):
         self.length = self.data.shape[0]
         self.data = self.data.to_numpy()        
            
-        # TODO apply transformations here to self.data 
             
     def _select_by_year(self):
         if self.year is not None:
