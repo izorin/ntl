@@ -30,25 +30,32 @@ class SGGCC:
     
 
 def download_data(save_path):
-    # Download data from GitHub repository
+    """
+    Download data from GitHub repository
+    """
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    os.system(
-        "wget -P {} -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.z01".format(
-            save_path
+    if not os.path.exists(os.path.join(save_path, 'data.z01')):
+        os.system(
+            "wget -P {} -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.z01".format(
+                save_path
+            )
         )
-    )
-    os.system(
-        "wget -P {} -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.z02".format(
-            save_path
+    
+    if not os.path.exists(os.path.join(save_path, 'data.z02')):
+        os.system(
+            "wget -P {} -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.z02".format(
+                save_path
+            )
         )
-    )
-    os.system(
-        "wget -P {} -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.zip".format(
-            save_path
+    
+    if not os.path.exists(os.path.join(save_path, 'data.zip')):
+        os.system(
+            "wget -P {} -nc -q https://github.com/henryRDlab/ElectricityTheftDetection/raw/master/data.zip".format(
+                save_path
+            )
         )
-    )
 
     # Unzip downloaded data
     file_path = os.path.join(save_path, "data_compress")
@@ -60,7 +67,9 @@ def download_data(save_path):
 
 
 def get_dataset(filepath):
-    """## Saving "flags" """
+    """
+    returns pd.DataFrame dataset
+    """
 
     df_raw = pd.read_csv(filepath, index_col=0)
     flags = df_raw.FLAG.copy()
@@ -76,25 +85,10 @@ def get_dataset(filepath):
     df_raw["FLAG"] = flags
     return df_raw
 
-def get_sgcc_data(filepath, normal_anomal_split=False):
-    
-    dataset = get_dataset(filepath)
-    dataset = dataset.reset_index().melt(id_vars=['CONS_NO', 'FLAG'], var_name='date', value_name='cons')
-    
-    if normal_anomal_split:
-        norm = dataset[dataset.FLAG == 0].drop('FLAG', axis=1)
-        anomal = dataset[dataset.FLAG == 1].drop('FLAG', axis=1)
-        return norm, anomal
-        
-    else:
-        return dataset
-        
-    
-    
-
-
 def get_processed_dataset(filepath):
-
+    """
+    returns pd.DataFrame dataset processed with sklearn.preprocessing.quantile_transform
+    """
     df_raw = get_dataset(filepath)
     flags = df_raw["FLAG"]
     df_raw.drop(["FLAG"], axis=1, inplace=True)
@@ -109,14 +103,28 @@ def get_processed_dataset(filepath):
 
     return df__
 
+def get_sgcc_data(filepath, normal_anomal_split=False):
+    
+    dataset = get_dataset(filepath)
+    dataset = dataset.reset_index().melt(id_vars=['CONS_NO', 'FLAG'], var_name='date', value_name='cons')
+    
+    if normal_anomal_split:
+        norm = dataset[dataset.FLAG == 0].drop('FLAG', axis=1)
+        anomal = dataset[dataset.FLAG == 1].drop('FLAG', axis=1)
+        return norm, anomal
+        
+    else:
+        return dataset
+        
+
 
 # torch datasets 
 class SGCCDataset(Dataset):
-    def __init__(self, path: str, label: str | int, scaling_method: str=None, imputation_method: str=None, nan_ratio: float=1.0, transforms: List[str]=[], year: int=None):
+    def __init__(self, path: str, label: str | int = None, scaling_method: str=None, imputation_method: str=None, nan_ratio: float=1.0, transforms: List[str]=[], year: int=None):
         """
             `path`: `str` with path to .csv file with data
             
-            `label`: `str` 'normal'/'anomal' or `int` 0/1
+            `label`: `str` 'normal'/'anomal' or `int` 0/1. if None returns all labels
             
             `scaling_method`: scaler name 'minmax'/'standard', default `None` for not doing any scaling
             
@@ -141,9 +149,10 @@ class SGCCDataset(Dataset):
         
         # TRANSFORMS
         # extracting data of only selected class
-        self.data = self._filter_by_label(self.data, self.label) 
-        self.labels = self.data['FLAG'].to_numpy() # class labels 
-        self.data = self.data.drop('FLAG', axis=1)  # raw data without labels
+        if self.label in ['normal', 'anomal', 0, 1]:
+            self.data = self._filter_by_label(self.data, self.label) 
+        # self.labels = self.data['FLAG'].to_numpy() # class labels 
+        # self.data = self.data.drop('FLAG', axis=1)  # raw data without labels
         self.consumers = self.data.reset_index()['CONS_NO'].to_list() # names of consumers
         # select consumption of specified year
         self.data = self._select_by_year()
@@ -155,17 +164,23 @@ class SGCCDataset(Dataset):
         # # scale data
         # self.data = self._scale_data()
 
+        self.labels = self.data['FLAG'].to_numpy() # class labels 
+        self.data = self.data.drop('FLAG', axis=1)  # raw data without labels
         
         self.length = self.data.shape[0]
         self.data = self.data.to_numpy()        
            
-        # TODO create callable classes for transformations  
+        # TODO apply transformations here to self.data 
             
     def _select_by_year(self):
         if self.year is not None:
-            cols = [col for col in self.data.columns if col.year == self.year]
+            date_columns = [col for col in self.data.columns if not type(col) == str]
+            date_columns = [col for col in date_columns if col.year == self.year]       
+            str_columns = [col for col in self.data.columns if type(col) == str]
+            
+            return self.data[date_columns + str_columns]
         else:
-            cols = self.data.columns
+            return self.data
             
         return self.data[cols]        
         
@@ -218,6 +233,10 @@ class SGCCDataset(Dataset):
     def _get_dataset(self):
         return get_dataset(self.path)
 
+    
+    def get_data(self):
+        return self.data, self.labels
+    
     def _get_item(self, idx):
         readings = self.data[idx, :, None].astype(np.float32)
         for tf in self.transforms:
@@ -230,6 +249,7 @@ class SGCCDataset(Dataset):
 
     def __len__(self):
         return self.length
+    
 
 
 
